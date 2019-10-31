@@ -96,7 +96,7 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 #if	defined(AT386)
-#define	PICM_VECTBASE		0x40
+#define	PICM_VECTBASE		0x20
 #define PICS_VECTBASE		PICM_VECTBASE + 0x08
 #endif	/* defined(AT386) */
 
@@ -176,9 +176,12 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define READ_IR_ONRD		0x00
 #define READ_IS_ONRD		0x01
 
+#define PIC_MASK_ZERO		0x00
+
 #ifndef __ASSEMBLER__
 extern void form_pic_mask (void);
 extern void picinit (void);
+extern void picdisable (void);
 extern int curr_pic_mask;
 extern int pic_mask[];
 extern void prtnull(int unit);
