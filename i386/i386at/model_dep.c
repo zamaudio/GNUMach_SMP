@@ -358,10 +358,10 @@ i386at_init(void)
     vm_offset_t addr, delta;
 
     /*
-     * Initialize the PIC prior to any possible call to an spl.
+     * Disable the PIC prior to any possible call to an spl.
      */
 #ifndef	MACH_HYP
-    picinit();
+    picdisable();
 #else	/* MACH_HYP */
     hyp_intrinit();
 #endif	/* MACH_HYP */
