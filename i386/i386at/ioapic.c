@@ -1,0 +1,346 @@
+/*
+ * Copyright (c) 2019 Damien Zammit
+ */
+
+#include <sys/types.h>
+#include <i386/ipl.h>
+#include <i386/fpu.h>
+#include <i386/hardclock.h>
+#include <i386at/kd.h>
+#include <i386at/idt.h>
+#include <i386/pio.h>
+#include <i386/pit.h>
+#include <mach/machine.h>
+#include <kern/printf.h>
+#include "imps/apic.h"
+
+uint32_t lapic_timer_val = 0;
+uint32_t calibrated_ticks = 0;
+
+spl_t	curr_ipl;
+int	pic_mask[NSPL] = {0};
+int	curr_pic_mask;
+
+int	iunit[NINTR] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+			16, 17, 18, 19, 20, 21, 22, 23};
+
+unsigned short	master_icw, master_ocw, slaves_icw, slaves_ocw;
+
+u_short PICM_ICW1, PICM_OCW1, PICS_ICW1, PICS_OCW1 ;
+u_short PICM_ICW2, PICM_OCW2, PICS_ICW2, PICS_OCW2 ;
+u_short PICM_ICW3, PICM_OCW3, PICS_ICW3, PICS_OCW3 ;
+u_short PICM_ICW4, PICS_ICW4 ;
+
+void (*ivect[NINTR])() = {
+	/* 00 */	hardclock,	/* always */
+	/* 01 */	kdintr,		/* kdintr, ... */
+	/* 02 */	intnull,
+	/* 03 */	intnull,	/* lnpoll, comintr, ... */
+
+	/* 04 */	intnull,	/* comintr, ... */
+	/* 05 */	intnull,	/* comintr, wtintr, ... */
+	/* 06 */	intnull,	/* fdintr, ... */
+	/* 07 */	prtnull,	/* qdintr, ... */
+
+	/* 08 */	intnull,
+	/* 09 */	intnull,	/* ether */
+	/* 10 */	intnull,
+	/* 11 */	intnull,
+
+	/* 12 */	intnull,
+	/* 13 */	fpintr,		/* always */
+	/* 14 */	intnull,	/* hdintr, ... */
+	/* 15 */	intnull,	/* ??? */
+
+	/* 16 */	intnull,	/* PIRQA */
+	/* 17 */	intnull,	/* PIRQB */
+	/* 18 */	intnull,	/* PIRQC */
+	/* 19 */	intnull,	/* PIRQD */
+	/* 20 */	intnull,	/* PIRQE */
+	/* 21 */	intnull,	/* PIRQF */
+	/* 22 */	intnull,	/* PIRQG */
+	/* 23 */	intnull,	/* PIRQH */
+};
+
+int intpri[NINTR] = {
+	/* 00 */   	0,	SPL6,	0,	0,
+	/* 04 */	0,	0,	0,	0,
+	/* 08 */	0,	0,	0,	0,
+	/* 12 */	0,	SPL1,	0,	0,
+	/* 16 */	0,	0,	0,	0,
+	/* 20 */	0,	0,	0,	0,
+};
+
+void
+picdisable(void)
+{
+
+	asm("cli");
+
+	form_pic_mask();
+
+	curr_ipl = SPLHI;
+	curr_pic_mask = pic_mask[SPLHI];
+
+	/*
+	** Disable PIC
+	*/
+	outb ( 0xa1, 0xff );
+	outb ( 0x21, 0xff );
+
+	/*
+	** Route interrupts through IOAPIC
+	*/
+	outb(IMCR_SELECT, MODE_IMCR);
+	outb(IMCR_DATA, IMCR_USE_APIC);
+}
+
+void
+form_pic_mask(void)
+{
+	unsigned int i, j, bit, mask;
+
+	for (i=SPL0; i < NSPL; i++) {
+		for (j=0x00, bit=0x01, mask = 0; j < NINTR; j++, bit<<=1)
+			if (intpri[j] <= i)
+				mask |= bit;
+
+		pic_mask[i] = mask;
+	}
+}
+
+void
+intnull(int unit_dev)
+{
+    printf("intnull(%d)\n", unit_dev);
+}
+
+int prtnull_count = 0;
+
+void
+prtnull(int unit)
+{
+	++prtnull_count;
+}
+
+static uint32_t
+ioapic_read(uint8_t apic, uint8_t reg)
+{
+    ioapic->select.r = reg;
+    return ioapic->window.r;
+}
+
+static void
+ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
+{
+    ioapic->select.r = reg;
+    ioapic->window.r = value;
+}
+
+static struct ioapic_route_entry
+ioapic_read_entry(int apic, int pin)
+{
+    union ioapic_route_entry_union entry;
+
+    entry.lo = ioapic_read(apic, APIC_IO_REDIR_LOW(pin));
+    entry.hi = ioapic_read(apic, APIC_IO_REDIR_HIGH(pin));
+
+    return entry.both;
+}
+
+/* Write the high word first because mask bit is in low word */
+static void
+ioapic_write_entry(int apic, int pin, struct ioapic_route_entry e)
+{
+    union ioapic_route_entry_union entry = {{0, 0}};
+
+    entry.both = e;
+    ioapic_write(apic, APIC_IO_REDIR_HIGH(pin), entry.hi);
+    ioapic_write(apic, APIC_IO_REDIR_LOW(pin), entry.lo);
+}
+
+/* When toggling the interrupt via mask, write low word only */
+static void
+ioapic_toggle_entry(int apic, int pin, int mask)
+{
+    union ioapic_route_entry_union entry;
+
+    entry.both = ioapic_read_entry(apic, pin);
+    entry.both.mask = mask & 0x1;
+    ioapic_write(apic, APIC_IO_REDIR_LOW(pin), entry.lo);
+}
+
+static void
+global_enable_apic(void)
+{
+	uint32_t val = 0;
+	uint32_t msr = 0x1b;
+
+	__asm__ __volatile__("rdmsr"
+			    : "=A" (val)
+			    : "c" (msr));
+	if (!(val & (1 << 11))) {
+	        val |= (1 << 11);
+
+		__asm__ __volatile__("wrmsr"
+			    : /* no Outputs */
+			    : "c" (msr), "A" (val));
+	}
+}
+
+static uint32_t
+pit_measure_apic_hz(void)
+{
+    uint32_t start = 0xffffffff;
+
+    /* Prepare accurate delay for 1/100 seconds */
+    pit_prepare_sleep(100);
+
+    /* Set APIC timer */
+    lapic->init_count.r = start;
+
+    /* zZz */
+    pit_sleep();
+
+    /* Stop APIC timer */
+    lapic->lvt_timer.r = LAPIC_DISABLE;
+
+    return start - lapic->cur_count.r;
+}
+
+void lapic_update_timer(void)
+{
+    /* Timer decrements until zero and then calls this on every interrupt */
+    lapic_timer_val += calibrated_ticks;
+}
+
+void
+lapic_enable_timer(void)
+{
+    spl_t s;
+
+    asm("cli");
+
+    intpri[0] = SPLHI;
+    form_pic_mask();
+    
+    s = sploff();
+
+    /* Set up counter */
+    lapic->init_count.r = calibrated_ticks;
+    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
+
+    /* Set the timer to interrupt periodically */
+    lapic->lvt_timer.r = IOAPIC_INT_BASE | LAPIC_TIMER_PERIODIC;
+
+    /* Some buggy hardware requires this set again */
+    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
+    
+    /* Unmask the timer irq */
+    ioapic_toggle(0, IOAPIC_MASK_ENABLED);
+
+    splon(s);
+}
+
+void
+ioapic_toggle(int pin, int mask)
+{
+    int apic = 0;
+    ioapic_toggle_entry(apic, pin, mask);
+}
+
+void
+ioapic_mask_irqs(void)
+{
+    int i, bitmask = 0x1;
+
+    for (i = 0; i < NINTR; i++, bitmask<<=1) {
+        if (curr_pic_mask & bitmask) {
+            ioapic_toggle(i, IOAPIC_MASK_DISABLED);
+        } else {
+            ioapic_toggle(i, IOAPIC_MASK_ENABLED);
+        }
+    }
+}
+
+void
+lapic_eoi(void)
+{
+    lapic_update_timer();
+    lapic->eoi.r = 0;
+}
+
+#ifndef LINUX_DEV
+void
+enable_irq(unsigned int irq)
+{
+    asm("cli");
+    ioapic_toggle(irq, IOAPIC_MASK_ENABLED);
+}
+
+void
+disable_irq(unsigned int irq)
+{
+    asm("cli");
+    ioapic_toggle(irq, IOAPIC_MASK_DISABLED);
+}
+#endif
+
+void
+ioapic_configure(void)
+{
+    /* Assume first IO APIC maps to GSI base 0 */
+    int pin, apic = 0, bsp = 0;
+
+    /* Disable IOAPIC interrupts and set spurious interrupt */
+    lapic->spurious_vector.r = IOAPIC_SPURIOUS_BASE;
+
+    union ioapic_route_entry_union entry = {{0, 0}};
+
+    entry.both.delvmode = IOAPIC_FIXED;
+    entry.both.destmode = IOAPIC_PHYSICAL;
+    entry.both.mask = IOAPIC_MASK_DISABLED;
+    entry.both.dest = machine_slot[bsp].apic_id;
+
+    /* ISA legacy IRQs */
+    entry.both.polarity = IOAPIC_ACTIVE_HIGH;
+    entry.both.trigger = IOAPIC_EDGE_TRIGGERED;
+
+    for (pin = 0; pin < 16; pin++) {
+	entry.both.vector = IOAPIC_INT_BASE + pin;
+	ioapic_write_entry(apic, pin, entry.both);
+    }
+
+    /* PCI IRQs PIRQ A-H */
+    entry.both.polarity = IOAPIC_ACTIVE_LOW;
+    entry.both.trigger = IOAPIC_LEVEL_TRIGGERED;
+
+    for (pin = 16; pin < 24; pin++) {
+        entry.both.vector = IOAPIC_INT_BASE + pin;
+	ioapic_write_entry(apic, pin, entry.both);
+    }
+
+    /* Start the IO APIC receiving interrupts */
+    lapic->dest_format.r = 0xffffffff;	/* flat model */
+    lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
+    lapic->lvt_timer.r = LAPIC_DISABLE;
+    lapic->lvt_performance_monitor.r = LAPIC_NMI;
+    lapic->lvt_lint0.r = LAPIC_DISABLE;
+    lapic->lvt_lint1.r = LAPIC_DISABLE;
+    lapic->task_pri.r = 0;
+
+    //?? global_enable_apic();
+
+    /* Enable IOAPIC interrupts */
+    lapic->spurious_vector.r |= LAPIC_ENABLE;
+
+    /* Set one-shot timer */
+    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
+    lapic->lvt_timer.r = IOAPIC_INT_BASE;
+
+    /* Measure number of APIC timer ticks in 10ms */
+    calibrated_ticks = pit_measure_apic_hz();
+    
+    /* Set up counter later */
+    lapic->lvt_timer.r = LAPIC_DISABLE;
+}

@@ -1,5 +1,6 @@
 /* 
  * Copyright (c) 1995 Shantanu Goel
+ * Copyright (c) 2019 Damien Zammit
  * All Rights Reserved.
  * 
  * Permission to use, copy, modify and distribute this software and its
@@ -20,13 +21,21 @@
 #include <mach/machine/asm.h>
 #include <i386/ipl.h>
 #include <i386/i386asm.h>
-#include <i386/xen.h>
+#include "imps/apic.h"
 
 #if NCPUS > 1
 #define mb lock; addl $0,(%esp)
 #else
 #define mb
 #endif
+
+/* Mask APIC irqs with bits from %eax */
+#define SETMASK() \
+	cmpl    EXT(curr_pic_mask),%eax;        \
+	je      9f;				\
+	movl    %eax,EXT(curr_pic_mask);        \
+	call	EXT(ioapic_mask_irqs);		\
+9:
 
 /*
  * Program XEN evt masks from %eax.
@@ -82,6 +91,9 @@ ENTRY(spl0)
 					/* get xen mask */
 	XEN_SETMASK()			/* program xen evts */
 #endif
+	movl	EXT(pic_mask)+SPL0*4,%eax
+					/* get PIC mask */
+	SETMASK()
 1:
 	sti				/* enable interrupts */
 	popl	%eax			/* return previous mask */
@@ -196,6 +208,9 @@ splx_cli:
 					/* get int mask */
 	XEN_SETMASK()			/* program xen evts with new mask */
 #endif
+	movl	EXT(pic_mask)(,%edx,4),%eax
+					/* get PIC mask */
+	SETMASK()
 1:
 	ret
 
@@ -229,9 +244,11 @@ spl:
 #ifdef MACH_XEN
 	XEN_SETMASK()			/* program PICs with new mask */
 #endif
+	SETMASK()
 	sti				/* enable interrupts */
 	movl	%edx,%eax		/* return previous ipl */
 	ret
+
 
 ENTRY(sploff)
 	pushfl

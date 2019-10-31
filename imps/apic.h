@@ -23,14 +23,17 @@
 #ifndef _IMPS_APIC_
 #define _IMPS_APIC_
 
+#include <i386/pic.h>
+#undef NINTR
+
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
 
 typedef struct ApicReg
 {
-	unsigned r;	/* the actual register */
-	unsigned p[3];	/* pad to the next 128-bit boundary */
+	uint32_t r;	/* the actual register */
+	uint32_t p[3];	/* pad to the next 128-bit boundary */
 } ApicReg;
 
 typedef struct ApicIoUnit
@@ -43,7 +46,7 @@ typedef struct ApicIoUnit
 struct ioapic {
     uint8_t apic_id;
     uint32_t addr;
-    uint32_t base;
+    uint32_t gsi_base;
 };
 
 extern int nioapic;
@@ -129,26 +132,86 @@ typedef struct ApicLocalUnit
     ApicReg reserved3f;
 } ApicLocalUnit;
 
+struct ioapic_route_entry {
+    uint32_t vector      : 8,
+	     delvmode    : 3, /* 000=fixed 001=lowest 111=ExtInt */
+	     destmode    : 1, /* 0=physical 1=logical */
+	     delvstatus  : 1,
+	     polarity    : 1, /* 0=activehigh 1=activelow */
+	     irr         : 1,
+	     trigger     : 1, /* 0=edge 1=level */
+	     mask        : 1, /* 0=enabled 1=disabled */
+	     reserved1   : 15;
+    uint32_t reserved2   : 24,
+	     dest        : 8;
+} __attribute__ ((packed));
+
+union ioapic_route_entry_union {
+    struct {
+	uint32_t lo;
+	uint32_t hi;
+    };
+    struct ioapic_route_entry both;
+};
 
 extern volatile ApicLocalUnit* lapic;
+extern volatile ApicIoUnit* ioapic;
 
+extern uint32_t lapic_timer_val;
+extern uint32_t calibrated_ticks;
 
-
+void picdisable(void);
+void lapic_eoi(void);
+void lapic_enable_timer(void);
+void ioapic_mask_irqs(void);
+void ioapic_toggle(int pin, int mask);
+void ioapic_configure(void);
+void enable_irq(unsigned int irq);
+void disable_irq(unsigned int irq);
 
 #endif
+
+#define IMCR_SELECT	0x22
+#define IMCR_DATA	0x23
+#define MODE_IMCR	0x70
+# define IMCR_USE_PIC	0
+# define IMCR_USE_APIC	1
+
+#define LAPIC_ENABLE	 		0x100
+#define LAPIC_NMI			0x400
+#define LAPIC_DISABLE			0x10000
+#define LAPIC_TIMER_PERIODIC		0x20000
+#define LAPIC_TIMER_DIVIDE_2		0
+#define LAPIC_TIMER_DIVIDE_4		1
+#define LAPIC_TIMER_DIVIDE_8		2
+#define LAPIC_TIMER_DIVIDE_16		3
+#define LAPIC_TIMER_BASEDIV		0x100000
+
+#define NINTR				24
+#define IOAPIC_FIXED			0
+#define IOAPIC_PHYSICAL			0
+#define IOAPIC_LOGICAL			1
+#define IOAPIC_NMI			4
+#define IOAPIC_EXTINT			7
+#define IOAPIC_ACTIVE_HIGH		0
+#define IOAPIC_ACTIVE_LOW		1
+#define IOAPIC_EDGE_TRIGGERED		0
+#define IOAPIC_LEVEL_TRIGGERED		1
+#define IOAPIC_MASK_ENABLED		0
+#define IOAPIC_MASK_DISABLED		1
 
 #define APIC_IO_UNIT_ID			0x00
 #define APIC_IO_VERSION			0x01
 #define APIC_IO_REDIR_LOW(int_pin)	(0x10+(int_pin)*2)
 #define APIC_IO_REDIR_HIGH(int_pin)	(0x11+(int_pin)*2)
 
-/* Address at which the local unit is mapped in kernel virtual memory.
- *   Must be constant.  
- */
+/* Addresses at which the apic units are mapped in kernel virtual memory. */
 
 #define APIC_LOCAL_VA	lapic
+#define APIC_IO_VA	ioapic
 
 #define apic_local_unit (*((volatile ApicLocalUnit*)APIC_LOCAL_VA))
+#define apic_io_unit (*((volatile ApicIoUnit*)APIC_IO_VA))
 
 
 /* Set or clear a bit in a 255-bit APIC mask register.

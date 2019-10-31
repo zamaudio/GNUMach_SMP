@@ -75,6 +75,9 @@ boolean_t reboot_on_panic = TRUE;
 #if	NCPUS > 1
 #include <machine/mp_desc.h>
 #include <kern/machine.h>
+#include <i386at/acpi_parse_apic.h>
+#include "imps/apic.h"
+
 #endif	/* NCPUS > 1 */
 
 /* XX */
@@ -122,6 +125,18 @@ void setup_main(void)
 	 * that this CPU is using the kernel pmap.
 	 */
 	PMAP_ACTIVATE_KERNEL(master_cpu);
+
+#if NCPUS > 1
+        /*
+         * After virtual memory is up, do extra initializations:
+         * currently it maps LAPIC and IOAPIC (in acpi_rsdp.c)
+         */
+        extra_setup();
+#endif
+
+#ifdef APIC
+	ioapic_configure();
+#endif
 
 	init_timers();
 	init_timeout();

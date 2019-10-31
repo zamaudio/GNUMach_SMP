@@ -30,6 +30,7 @@
 
 #include <kern/cpu_number.h>
 #include <kern/debug.h>
+#include <kern/startup.h>
 #include <mach/machine.h>
 #include <mach/xen.h>
 #include <vm/vm_kern.h>
@@ -162,6 +163,174 @@ mp_desc_init(int mycpu)
 
 		return mpt;
 	}
+}
+
+static void send_ipi(unsigned icr_h, unsigned icr_l)
+{
+    lapic->icr_high.r = icr_h;
+    lapic->icr_low.r = icr_l;
+}
+
+
+void startup_cpu(uint32_t apic_id)
+{
+    unsigned icr_h = 0;
+    unsigned icr_l = 0;
+
+    //send INIT Assert IPI
+    icr_h = (apic_id << 24);
+    icr_l = (INIT << 8) | (ASSERT << 14) | (LEVEL << 15);
+    send_ipi(icr_h, icr_l);
+
+    //wait until IPI is sent
+    delay(10000);
+    while( ( (lapic->icr_low.r >> 12) & 1) == SEND_PENDING);
+
+    //Send INIT De-Assert IPI
+    icr_h = 0;
+    icr_l = 0;
+    icr_h = (apic_id << 24);
+    icr_l = (INIT << 8) | (DE_ASSERT << 14) | (LEVEL << 15);
+    send_ipi(icr_h, icr_l);
+
+    //wait until IPI is sent
+    delay(10000);
+    while( ( (lapic->icr_low.r >> 12) & 1) == SEND_PENDING);
+
+    //Send StartUp IPI
+    icr_h = 0;
+    icr_l = 0;
+    icr_h = (apic_id << 24);
+    icr_l = (STARTUP << 8) | ((AP_BOOT_ADDR >>12) & 0xff);
+    send_ipi(icr_h, icr_l);
+
+    //wait until IPI is sent
+    delay(1000);
+    while( ( (lapic->icr_low.r >> 12) & 1) == SEND_PENDING);
+
+    //Send second StartUp IPI
+    icr_h = 0;
+    icr_l = 0;
+    icr_h = (apic_id << 24);
+    icr_l = (STARTUP << 8) | ((AP_BOOT_ADDR >>12) & 0xff);
+    send_ipi(icr_h, icr_l);
+
+    //wait until IPI is sent
+    delay(1000);
+    while( ( (lapic->icr_low.r >> 12) & 1) == SEND_PENDING);
+
+}
+
+int
+cpu_setup()
+{
+
+    int i = 1;
+    int kernel_id = 0;
+
+    kmutex_init(&ap_config_lock);
+    kmutex_lock(&ap_config_lock, FALSE);
+
+    while(i < ncpu && (machine_slot[i].running == TRUE)) i++;
+
+    /* assume Pentium 4, Xeon, or later processors */
+    //unsigned apic_id = (((ApicLocalUnit*)phystokv(lapic_addr))->apic_id.r >> 24) & 0xff;
+    unsigned apic_id = lapic->apic_id.r;
+
+    /* panic? */
+    if(i >= ncpu)
+        return -1;
+
+    /*TODO: Move this code to a separate function*/
+
+
+
+    /* Update apic2kernel and machine_slot with the newest apic_id */
+    if(apic2kernel[machine_slot[i].apic_id] == i)
+        {
+            apic2kernel[machine_slot[i].apic_id] = -1;
+        }
+
+    apic2kernel[apic_id] = i;
+    machine_slot[i].apic_id =  apic_id;
+
+    /* Initialize machine_slot fields with the cpu data */
+    machine_slot[i].running = TRUE;
+    machine_slot[i].cpu_subtype = CPU_SUBTYPE_AT386;
+
+    int cpu_type = discover_x86_cpu_type ();
+
+    switch (cpu_type)
+        {
+        default:
+            printf("warning: unknown cpu type %d, assuming i386\n", cpu_type);
+
+        case 3:
+            machine_slot[i].cpu_type = CPU_TYPE_I386;
+            break;
+
+        case 4:
+            machine_slot[i].cpu_type = CPU_TYPE_I486;
+            break;
+
+        case 5:
+            machine_slot[i].cpu_type = CPU_TYPE_PENTIUM;
+            break;
+        case 6:
+        case 15:
+            machine_slot[i].cpu_type = CPU_TYPE_PENTIUMPRO;
+            break;
+        }
+
+    /*
+     * Initialize and activate the real i386 protected-mode structures.
+     */
+    gdt_init();
+    idt_init();
+    ldt_init();
+    ktss_init();
+
+    /* Add cpu to the kernel */
+    slave_main();
+
+    kmutex_unlock(&ap_config_lock);
+
+    return 0;
+}
+
+void paging_setup(){
+
+#if PAE
+    set_cr3(pdpbase_addr);
+#ifndef	MACH_HYP
+    if (!CPU_HAS_FEATURE(CPU_FEATURE_PAE))
+        set_cr4(get_cr4() | CR4_PAE);
+#endif	/* MACH_HYP */
+#else
+    set_cr3(kernel_page_dir_addr);
+#endif	/* PAE */
+#ifndef	MACH_HYP
+    /* Turn paging on.
+     * Also set the WP bit so that on 486 or better processors
+     * page-level write protection works in kernel mode.
+     */
+    set_cr0(get_cr0() | CR0_PG | CR0_WP);
+    set_cr0(get_cr0() & ~(CR0_CD | CR0_NW));
+
+    if (CPU_HAS_FEATURE(CPU_FEATURE_PGE))
+        set_cr4(get_cr4() | CR4_PGE);
+
+#endif	/* MACH_HYP */
+
+    flush_instr_queue();
+    flush_tlb();
+
+}
+
+void
+cpu_ap_main(void)
+{
+    cpu_setup();
 }
 
 

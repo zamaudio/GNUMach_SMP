@@ -96,7 +96,7 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 #if	defined(AT386) || defined(ATX86_64)
-#define	PICM_VECTBASE		0x40
+#define	PICM_VECTBASE		0x20
 #define PICS_VECTBASE		PICM_VECTBASE + 0x08
 #endif	/* defined(AT386) */
 
@@ -175,6 +175,8 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define READ_NEXT_RD		0x02
 #define READ_IR_ONRD		0x00
 #define READ_IS_ONRD		0x01
+
+#define PIC_MASK_ZERO		0x00
 
 #ifndef __ASSEMBLER__
 extern void picinit (void);

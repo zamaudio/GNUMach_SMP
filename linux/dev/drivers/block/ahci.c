@@ -852,6 +852,11 @@ static void ahci_probe_dev(unsigned char bus, unsigned char device)
 		return;
 	}
 
+#ifdef APIC
+	/* IOAPIC PIRQA = 16 (not 10) */
+	irq += 6;
+#endif
+
 	printk("AHCI SATA %02x:%02x.%x BAR 0x%x IRQ %u\n", bus, dev, fun, bar, irq);
 
 	/* Map mmio */

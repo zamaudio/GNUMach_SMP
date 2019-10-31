@@ -92,7 +92,6 @@ ENTRY(name)				;\
 #define	EXCEP_SPC(n,name)  \
 	IDT_ENTRY(n,EXT(name),ACC_PL_K|ACC_TRAP_GATE)
 
-
 EXCEPTION(0x00,t_zero_div)
 EXCEP_SPC(0x01,t_debug)
 /* skip NMI interrupt - let more specific code figure that out.  */

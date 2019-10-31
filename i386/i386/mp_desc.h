@@ -77,7 +77,11 @@ extern struct real_descriptor	*mp_gdt[NCPUS];
 extern struct mp_desc_table *	mp_desc_init(int);
 
 
+extern void interrupt_stack_alloc(void);
 extern void interrupt_processor(int cpu);
+extern void startup_cpu(uint32_t apic_id);
+extern void cpu_ap_main(void);
+extern int cpu_setup(void);
 
 
 #endif /* MULTIPROCESSOR */

@@ -58,7 +58,7 @@
 #include <i386/ktss.h>
 #include <i386/ldt.h>
 #include <i386/machspl.h>
-#include <i386/pic.h>
+#include "imps/apic.h"
 #include <i386/pit.h>
 #include <i386/pmap.h>
 #include <i386/proc_reg.h>
@@ -166,6 +166,14 @@ void machine_init(void)
 	hyp_init();
 #else	/* MACH_HYP */
 #ifdef LINUX_DEV
+    
+#ifdef APIC
+	/*
+	 * Start the APIC timer
+	 */
+	lapic_enable_timer();
+#endif
+
 	/*
 	 * Initialize Linux drivers.
 	 */
@@ -341,15 +349,20 @@ register_boot_data(const struct multiboot_raw_info *mbi)
 void
 i386at_init(void)
 {
-	/* XXX move to intel/pmap.h */
-	extern pt_entry_t *kernel_page_dir;
-	int i;
+    /* XXX move to intel/pmap.h */
+    extern pt_entry_t *kernel_page_dir;
+    int nb_direct, i;
+    vm_offset_t addr, delta;
 
-	/*
-	 * Initialize the PIC prior to any possible call to an spl.
-	 */
+    /*
+     * Disable the PIC prior to any possible call to an spl.
+     */
 #ifndef	MACH_HYP
-	picinit();
+# ifdef APIC
+    picdisable();
+# else
+    picinit();
+# endif
 #else	/* MACH_HYP */
 	hyp_intrinit();
 #endif	/* MACH_HYP */
@@ -494,6 +507,8 @@ i386at_init(void)
 #endif	/* MACH_HYP */
 	ldt_init();
 	ktss_init();
+	interrupt_stack_alloc();
+	mp_desc_init(master_cpu);
 
 #if INIT_VM_MIN_KERNEL_ADDRESS != LINEAR_MIN_KERNEL_ADDRESS
 	/* Get rid of the temporary direct mapping and flush it out of the TLB.  */
@@ -531,6 +546,9 @@ i386at_init(void)
 
 	int_stack_base = (vm_offset_t)&int_stack;
 	int_stack_top = int_stack_base + KERNEL_STACK_SIZE - 4;
+
+	/* Configure the IOAPIC */
+	ioapic_configure();
 }
 
 /*
@@ -670,7 +688,9 @@ timemmap(dev, off, prot)
 void
 startrtclock(void)
 {
-	clkstart();
+#ifndef APIC
+    clkstart();
+#endif
 }
 
 void

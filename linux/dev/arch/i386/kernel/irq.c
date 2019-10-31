@@ -29,7 +29,7 @@
 #include <kern/assert.h>
 
 #include <i386/spl.h>
-#include <i386/pic.h>
+#include "imps/apic.h"
 #include <i386/pit.h>
 
 #define MACH_INCLUDE
@@ -78,13 +78,7 @@ struct linux_action
   unsigned long flags;
 };
 
-static struct linux_action *irq_action[16] =
-{
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL
-};
+static struct linux_action *irq_action[NINTR] = {NULL};
 
 /*
  * Generic interrupt handler for Linux devices.
@@ -122,14 +116,24 @@ static inline void
 mask_irq (unsigned int irq_nr)
 {
   int new_pic_mask = curr_pic_mask | 1 << irq_nr;
+#ifdef APIC
+  ioapic_toggle(irq_nr, IOAPIC_MASK_DISABLED);
+#else
+  int i;
 
   if (curr_pic_mask != new_pic_mask)
     {
       curr_pic_mask = new_pic_mask;
+      
+#ifdef APIC
+      ioapic_mask_irqs();
+#else
       if (irq_nr < 8)
        outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
       else
-       outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
+	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
+#endif
+      
     }
 }
 
@@ -141,6 +145,9 @@ unmask_irq (unsigned int irq_nr)
 {
   int mask;
   int new_pic_mask;
+#ifdef APIC
+  ioapic_toggle(irq_nr, IOAPIC_MASK_ENABLED);
+#else
 
   mask = 1 << irq_nr;
   if (irq_nr >= 8)
@@ -151,10 +158,14 @@ unmask_irq (unsigned int irq_nr)
   if (curr_pic_mask != new_pic_mask)
     {
       curr_pic_mask = new_pic_mask;
+#ifdef APIC
+      ioapic_mask_irqs();
+#else
       if (irq_nr < 8)
 	outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
       else
 	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
+#endif
     }
 }
 
@@ -273,6 +284,51 @@ setup_x86_irq (int irq, struct linux_action *new)
   return 0;
 }
 
+int
+install_user_intr_handler (unsigned int irq, unsigned long flags,
+			  ipc_port_t dest)
+{
+  struct linux_action *action;
+  struct linux_action *old;
+  int retval;
+
+  assert (irq < NINTR);
+
+  /* Test whether the irq handler has been set */
+  // TODO I need to protect the array when iterating it.
+  old = irq_action[irq];
+  while (old)
+    {
+      if (old->delivery_port == dest)
+	{
+	  printk ("The interrupt handler has been installed on line %d", irq);
+	  return linux_to_mach_error (-EAGAIN);
+	}
+      old = old->next;
+    }
+
+  /*
+   * Hmm... Should I use `kalloc()' ?
+   * By OKUJI Yoshinori.
+   */
+  action = (struct linux_action *)
+    linux_kmalloc (sizeof (struct linux_action), GFP_KERNEL);
+  if (action == NULL)
+    return linux_to_mach_error (-ENOMEM);
+  
+  action->handler = NULL;
+  action->next = NULL;
+  action->dev_id = NULL;
+  action->flags = flags;
+  action->delivery_port = dest;
+  
+  retval = setup_x86_irq (irq, action);
+  if (retval)
+    linux_kfree (action);
+  
+  return linux_to_mach_error (retval);
+}
+
 /*
  * Attach a handler to an IRQ.
  */
@@ -283,7 +339,7 @@ request_irq (unsigned int irq, void (*handler) (int, void *, struct pt_regs *),
   struct linux_action *action;
   int retval;
 
-  assert (irq < 16);
+  assert (irq < NINTR);
 
   if (!handler)
     return -EINVAL;
@@ -318,7 +374,7 @@ free_irq (unsigned int irq, void *dev_id)
   struct linux_action *action, **p;
   unsigned long flags;
 
-  if (irq > 15)
+  if (irq >= NINTR)
     panic ("free_irq: bad irq number");
 
   for (p = irq_action + irq; (action = *p) != NULL; p = &action->next)
@@ -357,7 +413,7 @@ probe_irq_on (void)
   /*
    * Allocate all available IRQs.
    */
-  for (i = 15; i > 0; i--)
+  for (i = NINTR - 1; i > 0; i--)
     {
       if (!irq_action[i] && ivect[i] == intnull)
 	{
@@ -390,7 +446,7 @@ probe_irq_off (unsigned long irqs)
   /*
    * Disable unnecessary IRQs.
    */
-  for (i = 15; i > 0; i--)
+  for (i = NINTR - 1; i > 0; i--)
     {
       if (!irq_action[i] && ivect[i] == intnull)
 	{
@@ -430,7 +486,7 @@ reserve_mach_irqs (void)
 {
   unsigned int i;
 
-  for (i = 0; i < 16; i++)
+  for (i = 0; i < NINTR; i++)
     {
       if (ivect[i] != intnull)
 	/* This dummy action does not specify SA_SHIRQ, so
@@ -723,13 +779,15 @@ init_IRQ (void)
    */
   (void) splhigh ();
   
+#ifndef APIC
   /*
    * Program counter 0 of 8253 to interrupt hz times per second.
    */
   outb_p (PIT_C0 | PIT_SQUAREMODE | PIT_READMODE, PITCTL_PORT);
   outb_p (latch & 0xff, PITCTR0_PORT);
   outb (latch >> 8, PITCTR0_PORT);
-  
+#endif
+
   /*
    * Install our clock interrupt handler.
    */
@@ -738,6 +796,25 @@ init_IRQ (void)
 
   reserve_mach_irqs ();
 
+  for (i = 1; i < NINTR; i++)
+    {
+#ifndef APIC
+      /*
+       * irq2 and irq13 should be igonored.
+       */
+      if (i == 2 || i == 13)
+	continue;
+#endif
+      if (ivect[i] == prtnull || ivect[i] == intnull)
+	{
+          ivect[i] = linux_bad_intr;
+          iunit[i] = i;
+          intpri[i] = SPL0;
+	}
+    }
+  
+  form_pic_mask ();
+  
   /*
    * Enable interrupts.
    */

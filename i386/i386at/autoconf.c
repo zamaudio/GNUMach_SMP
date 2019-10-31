@@ -26,8 +26,9 @@
 
 #include <kern/printf.h>
 #include <mach/std_types.h>
-#include <i386/pic.h>
+#include "imps/apic.h"
 #include <i386/ipl.h>
+
 #include <chips/busses.h>
 
 /* initialization typecasts */
