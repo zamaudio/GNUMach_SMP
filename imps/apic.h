@@ -129,13 +129,45 @@ typedef struct ApicLocalUnit
     ApicReg reserved3f;
 } ApicLocalUnit;
 
+struct ioapic_route_entry {
+    uint32_t vector      : 8,
+	     delvmode    : 3, /* 000=fixed 001=lowest 111=ExtInt */
+	     destmode    : 1, /* 0=physical 1=logical */
+	     delvstatus  : 1,
+	     polarity    : 1, /* 0=activehigh 1=activelow */
+	     irr         : 1,
+	     trigger     : 1, /* 0=edge 1=level */
+	     mask        : 1, /* 0=enabled 1=disabled */
+	     reserved1   : 15;
+    uint32_t reserved2   : 24,
+	     dest        : 8;
+} __attribute__ ((packed))
+
+union ioapic_route_entry_union {
+    struct {
+	uint32_t lo;
+	uint32_t hi;
+    };
+    struct ioapic_route_entry both;
+};
 
 extern volatile ApicLocalUnit* lapic;
 
-
-
+void ioapic_toggle(int pin, int mask);
+void ioapic_configure(void);
 
 #endif
+
+#define IOAPIC_FIXED			0
+#define IOAPIC_EXTINT			7
+#define IOAPIC_PHYSICAL			0
+#define IOAPIC_LOGICAL			1
+#define IOAPIC_ACTIVE_HIGH		0
+#define IOAPIC_ACTIVE_LOW		1
+#define IOAPIC_EDGE_TRIGGERED		0
+#define IOAPIC_LEVEL_TRIGGERED		1
+#define IOAPIC_MASK_ENABLED		0
+#define IOAPIC_MASK_DISABLED		1
 
 #define APIC_IO_UNIT_ID			0x00
 #define APIC_IO_VERSION			0x01

@@ -4,13 +4,13 @@
 
 #include <sys/types.h>
 #include <i386/ipl.h>
-#include <i386/pic.h>
 #include <i386/fpu.h>
 #include <i386/hardclock.h>
 #include <i386at/kd.h>
+#include <i386at/idt.h>
 #include "imps/apic.h"
 
-#define NINTR 25
+#define NINTR (IOAPIC_NINTR + 1)
 
 void (*ivect[NINTR])() = {
 	/* 00 */	hardclock,	/* always */
@@ -44,3 +44,77 @@ void (*ivect[NINTR])() = {
 	
 	/* 255 */	intnull,	/* spurious */
 };
+
+static uint32_t
+ioapic_read(uint8_t apic, uint8_t reg)
+{
+    uint32_t volatile *hw = (uint32_t volatile *)ioapic[apic].addr;
+    hw[0] = reg;
+    return hw[4];
+}
+
+static void
+ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
+{
+    uint32_t volatile *hw = (uint32_t volatile *)ioapic[apic].addr;
+    hw[0] = reg;
+    hw[4] = value;
+}
+
+static struct ioapic_route_entry
+ioapic_read_entry(int apic, int pin)
+{
+    union ioapic_route_entry_union entry;
+
+    entry.lo = ioapic_read(apic, APIC_IO_REDIR_LOW(pin));
+    entry.hi = ioapic_read(apic, APIC_IO_REDIR_HIGH(pin));
+
+    return entry.both;
+}
+
+/* Write the high word first because mask bit is in low word */
+static void
+ioapic_write_entry(int apic, int pin, struct ioapic_route_entry e)
+{
+    union ioapic_route_entry_union entry = {{0, 0}};
+
+    entry.both = e;
+    ioapic_write(apic, APIC_IO_REDIR_HIGH(pin), entry.hi);
+    ioapic_write(apic, APIC_IO_REDIR_LOW(pin), entry.lo);
+}
+
+/* When toggling the interrupt via mask, write low word only */
+static void
+ioapic_toggle_entry(int apic, int pin, int mask)
+{
+    union ioapic_route_entry_union entry;
+
+    entry.both = ioapic_read_entry(apic, pin);
+    entry.both.mask = mask & 0x1;
+    ioapic_write(apic, APIC_IO_REDIR_LOW(pin), entry.lo);
+}
+
+void
+ioapic_toggle(int pin, int mask)
+{
+    ioapic_toggle_entry(0, pin, mask);
+}
+
+void
+ioapic_configure(void)
+{
+    int i, pin, apic = 0;
+    union ioapic_route_entry_union entry = {{0, 0}};
+
+    entry.both.delvmode = IOAPIC_FIXED;
+    entry.both.destmode = IOAPIC_PHYSICAL;
+    entry.both.polarity = IOAPIC_ACTIVE_LOW;
+    entry.both.trigger = IOAPIC_LEVEL_TRIGGER;
+    entry.both.mask = IOAPIC_MASK_ENABLED;
+
+    for (pin = 0; pin < IOAPIC_NINTR; pin++) {
+        entry.both.vector = IOAPIC_INT_BASE + pin;
+	entry.both.dest = ioapic[apic].apic_id & 0xf;
+	ioapic_write_entry(apic, pin, entry.both);
+    }
+}

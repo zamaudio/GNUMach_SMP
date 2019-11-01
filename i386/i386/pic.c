@@ -173,6 +173,11 @@ picdisable(void)
 	*/
 	outb ( master_ocw, PIC_MASK_ZERO );
 
+	/*
+	** 7. Disable PIC
+	*/
+	outb ( slave_ocw, 0xff );
+	outb ( master_ocw, 0xff );
 }
 
 
