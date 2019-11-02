@@ -31,6 +31,7 @@
 #include <i386/cpu.h>
 #include <kern/cpu_number.h>
 #include <kern/debug.h>
+#include <kern/startup.h>
 #include <mach/machine.h>
 #include <mach/xen.h>
 #include <vm/vm_kern.h>
@@ -391,10 +392,10 @@ void paging_setup(){
 
 }
 
-int
-cpu_ap_main()
+void
+cpu_ap_main(void)
 {
-    if(cpu_setup()) return -1;
+    cpu_setup();
 }
 
 /*TODO: Reimplement function to send Startup IPI to cpu*/
