@@ -530,8 +530,6 @@ i386at_init(void)
     interrupt_stack_alloc();
     mp_desc_init(master_cpu);
 
-
-
 #if INIT_VM_MIN_KERNEL_ADDRESS != LINEAR_MIN_KERNEL_ADDRESS
     /* Get rid of the temporary direct mapping and flush it out of the TLB (only if there are an only cpu).  */
 
@@ -574,8 +572,6 @@ if(ncpu == 1){
     int_stack_base = (vm_offset_t)&int_stack;
     int_stack_top = int_stack_base + KERNEL_STACK_SIZE - 4;
 
-    /* Configure the IOAPIC */
-    ioapic_configure();
 }
 
 /*

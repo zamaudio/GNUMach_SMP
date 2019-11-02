@@ -135,7 +135,8 @@ void setup_main(void)
 	#if NCPUS > 1
         /*
          * After virtual memory is up, do extra initializations:
-         * currently it maps LAPIC (in acpi_rsdp.c)
+         * currently it maps LAPIC and IOAPIC (in acpi_rsdp.c)
+         * and configures the IOAPIC
          */
         extra_setup();
 	#endif
