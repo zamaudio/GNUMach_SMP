@@ -30,12 +30,20 @@
 
 /*
  * Set IPL to the specified value.
+ *
+ * NOTE: Normally we would not have to enable interrupts
+ * here.  Linux drivers, however, use cli()/sti(), so we must
+ * guard against the case where a Mach routine which
+ * has done an spl() calls a Linux routine that returns
+ * with interrupts disabled.  A subsequent splx() can,
+ * potentially, return with interrupts disabled.
  */
 #define SETIPL(level)			\
 	mb;				\
 	movl	$(level),%edx;		\
 	cmpl	EXT(curr_ipl),%edx;	\
 	jne	spl;			\
+	sti;				\
 	movl	%edx,%eax;		\
 	ret
 
@@ -44,12 +52,36 @@ ENTRY(spl0)
 	movl	EXT(curr_ipl),%eax	/* save current ipl */
 	pushl	%eax
 	cli				/* disable interrupts */
+#ifdef LINUX_DEV
+	movl	EXT(bh_active),%eax
+					/* get pending mask */
+	andl	EXT(bh_mask),%eax	/* any pending unmasked interrupts? */
+	jz	1f			/* no, skip */
+	call	EXT(spl1)		/* block further interrupts */
+	incl	EXT(intr_count)		/* set interrupt flag */
+	call	EXT(linux_soft_intr)	/* go handle interrupt */
+	decl	EXT(intr_count)		/* decrement interrupt flag */
+	cli				/* disable interrupts */
+1:
+#endif
 	cmpl	$0,softclkpending	/* softclock pending? */
 	je	1f			/* no, skip */
 	movl	$0,softclkpending	/* clear flag */
 	call	EXT(spl1)		/* block further interrupts */
+#ifdef LINUX_DEV
+	incl	EXT(intr_count)		/* set interrupt flag */
+#endif
 	call	EXT(softclock)		/* go handle interrupt */
+#ifdef LINUX_DEV
+	decl	EXT(intr_count)		/* decrement interrupt flag */
+#endif
 	cli				/* disable interrupts */
+1:
+	cmpl	$(SPL0),EXT(curr_ipl)	/* are we at spl0? */
+	je	1f			/* yes, all done */
+	movl	$(SPL0),EXT(curr_ipl)	/* set ipl */
+	movl	EXT(pic_mask)+SPL0*4,%eax
+					/* get PIC mask */
 1:
 	sti				/* enable interrupts */
 	popl	%eax			/* return previous mask */
@@ -96,6 +128,18 @@ ENTRY(spl7)
 ENTRY(splx)
 	movl	S_ARG0,%edx		/* get ipl */
 
+#if (MACH_KDB || MACH_TTD) && !defined(MACH_XEN)
+	/* First make sure that if we're exitting from ipl7, IF is still cleared */
+	cmpl	$SPL7,EXT(curr_ipl)	/* from ipl7? */
+	jne	0f
+	pushfl
+	popl	%eax
+	testl	$0x200,%eax		/* IF? */
+	jz	0f
+	int3				/* Oops, interrupts got enabled?! */
+
+0:
+#endif	/* (MACH_KDB || MACH_TTD) && !MACH_XEN */
 	testl	%edx,%edx		/* spl0? */
 	jz	EXT(spl0)		/* yes, handle specially */
 	cmpl	EXT(curr_ipl),%edx	/* same ipl as current? */
@@ -119,11 +163,29 @@ splx_cli:
 	cli				/* disable interrupts */
 	testl	%edx,%edx		/* spl0? */
 	jnz	2f			/* no, skip */
+#ifdef LINUX_DEV
+	movl	EXT(bh_active),%eax
+					/* get pending mask */
+	andl	EXT(bh_mask),%eax	/* any pending unmasked interrupts? */
+	jz	1f			/* no, skip */
+	call	EXT(spl1)		/* block further interrupts */
+	incl	EXT(intr_count)		/* set interrupt flag */
+	call	EXT(linux_soft_intr)	/* go handle interrupt */
+	decl	EXT(intr_count)		/* decrement interrupt flag */
+	cli				/* disable interrupts */
+1:
+#endif
 	cmpl	$0,softclkpending	/* softclock pending? */
 	je	1f			/* no, skip */
 	movl	$0,softclkpending	/* clear flag */
 	call	EXT(spl1)		/* block further interrupts */
+#ifdef LINUX_DEV
+	incl	EXT(intr_count)		/* set interrupt flag */
+#endif
 	call	EXT(softclock)		/* go handle interrupt */
+#ifdef LINUX_DEV
+	decl	EXT(intr_count)		/* decrement interrupt flag */
+#endif
 	cli				/* disable interrupts */
 1:
 	xorl	%edx,%edx		/* edx = ipl 0 */
@@ -143,6 +205,18 @@ splx_cli:
 	.align	TEXT_ALIGN
 	.globl	spl
 spl:
+#if (MACH_KDB || MACH_TTD) && !defined(MACH_XEN)
+	/* First make sure that if we're exitting from ipl7, IF is still cleared */
+	cmpl	$SPL7,EXT(curr_ipl)	/* from ipl7? */
+	jne	0f
+	pushfl
+	popl	%eax
+	testl	$0x200,%eax		/* IF? */
+	jz	0f
+	int3				/* Oops, interrupts got enabled?! */
+
+0:
+#endif	/* (MACH_KDB || MACH_TTD) && !MACH_XEN */
 	cmpl	$SPL7,%edx		/* spl7? */
 	je	EXT(spl7)		/* yes, handle specially */
 	movl	EXT(pic_mask)(,%edx,4),%eax
