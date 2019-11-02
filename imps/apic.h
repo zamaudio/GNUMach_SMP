@@ -157,8 +157,10 @@ extern volatile ApicLocalUnit* lapic;
 extern void form_pic_mask (void);
 extern int curr_pic_mask;
 extern int pic_mask[];
+extern int intpri[];
 extern void prtnull(int unit);
 extern void intnull(int unit);
+extern void picdisable(void);
 
 void lapic_eoi(void);
 void ioapic_toggle(int pin, int mask);
@@ -168,6 +170,7 @@ void ioapic_configure(void);
 
 #define LAPIC_ENABLE_SPURIOUS 		(1 << 8)
 
+#define IOAPIC_NINTR			24
 #define IOAPIC_FIXED			0
 #define IOAPIC_EXTINT			7
 #define IOAPIC_PHYSICAL			0

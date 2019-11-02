@@ -8,6 +8,7 @@
 #include <i386/hardclock.h>
 #include <i386at/kd.h>
 #include <i386at/idt.h>
+#include <i386/pio.h>
 #include "imps/apic.h"
 
 #define NINTR (IOAPIC_NINTR + 1)
@@ -52,6 +53,25 @@ void (*ivect[NINTR])() = {
 	/* 255 */	intnull,	/* spurious */
 };
 
+int intpri[NINTR] = {
+	/* 00 */   	0,	SPL6,	0,	0,
+	/* 04 */	0,	0,	0,	0,
+	/* 08 */	0,	0,	0,	0,
+	/* 12 */	0,	SPL1,	0,	0,
+	/* 16 */	0,	0,	0,	0,
+	/* 20 */	0,	0,	0,	0,
+	/* 255 */	0,
+};
+
+void
+picdisable(void)
+{
+	asm("cli");
+
+	outb(0xa1, 0xff);
+	outb(0x21, 0xff);
+}
+
 void
 form_pic_mask(void)
 {
@@ -61,7 +81,7 @@ form_pic_mask(void)
 void
 intnull(int unit_dev)
 {
-	printf("intnull(%d)\n", unit_dev);
+    /* empty */
 }
 
 int prtnull_count = 0;
@@ -75,7 +95,7 @@ prtnull(int unit)
 static uint32_t
 ioapic_read(uint8_t apic, uint8_t reg)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapic[apic].addr;
+    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].addr;
     hw[0] = reg;
     return hw[4];
 }
@@ -83,7 +103,7 @@ ioapic_read(uint8_t apic, uint8_t reg)
 static void
 ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapic[apic].addr;
+    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].addr;
     hw[0] = reg;
     hw[4] = value;
 }
@@ -152,11 +172,11 @@ ioapic_configure(void)
     entry.both.delvmode = IOAPIC_FIXED;
     entry.both.destmode = IOAPIC_PHYSICAL;
     entry.both.mask = IOAPIC_MASK_ENABLED;
-    entry.both.dest = ioapic[apic].apic_id & 0xf;
+    entry.both.dest = ioapics[apic].apic_id & 0xf;
 
     /* ISA legacy IRQs */
     entry.both.polarity = IOAPIC_ACTIVE_HIGH;
-    entry.both.trigger = IOAPIC_EDGE_TRIGGER;
+    entry.both.trigger = IOAPIC_EDGE_TRIGGERED;
 
     for (pin = 0; pin < 16; pin++) {
         entry.both.vector = IOAPIC_INT_BASE + pin;
@@ -165,7 +185,7 @@ ioapic_configure(void)
 
     /* PCI IRQs PIRQ A-H */
     entry.both.polarity = IOAPIC_ACTIVE_LOW;
-    entry.both.trigger = IOAPIC_LEVEL_TRIGGER;
+    entry.both.trigger = IOAPIC_LEVEL_TRIGGERED;
 
     for (pin = 16; pin < 24; pin++) {
         entry.both.vector = IOAPIC_INT_BASE + pin;
