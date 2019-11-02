@@ -11,8 +11,6 @@
 #include <i386/pio.h>
 #include "imps/apic.h"
 
-#define NINTR (IOAPIC_NINTR + 1)
-
 spl_t	curr_ipl;
 int	pic_mask[NSPL] = {0};
 int	curr_pic_mask;

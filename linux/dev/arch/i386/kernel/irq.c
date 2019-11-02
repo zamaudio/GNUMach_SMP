@@ -31,8 +31,10 @@
 #include <i386/spl.h>
 #ifdef APIC
 # include "imps/apic.h"
+# define NINTR_LINUX IOAPIC_NINTR
 #else
 # include <i386/pic.h>
+# define NINTR_LINUX NINTR
 #endif
 #include <i386/pit.h>
 
@@ -90,13 +92,7 @@ struct linux_action
   volatile ipc_port_t delivery_port;
 };
 
-static struct linux_action *irq_action[16] =
-{
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL
-};
+static struct linux_action *irq_action[NINTR_LINUX] = {NULL};
 
 /*
  * Generic interrupt handler for Linux devices.
@@ -303,7 +299,7 @@ install_user_intr_handler (unsigned int irq, unsigned long flags,
   struct linux_action *old;
   int retval;
 
-  assert (irq < 16);
+  assert (irq < NINTR_LINUX);
 
   /* Test whether the irq handler has been set */
   // TODO I need to protect the array when iterating it.
@@ -350,7 +346,7 @@ request_irq (unsigned int irq, void (*handler) (int, void *, struct pt_regs *),
   struct linux_action *action;
   int retval;
 
-  assert (irq < 16);
+  assert (irq < NINTR_LINUX);
 
   if (!handler)
     return -EINVAL;
@@ -501,7 +497,7 @@ reserve_mach_irqs (void)
 {
   unsigned int i;
 
-  for (i = 0; i < 16; i++)
+  for (i = 0; i < NINTR_LINUX; i++)
     {
       if (ivect[i] != prtnull && ivect[i] != intnull)
 	/* This dummy action does not specify SA_SHIRQ, so
@@ -813,7 +809,7 @@ init_IRQ (void)
 
   reserve_mach_irqs ();
 
-  for (i = 1; i < 16; i++)
+  for (i = 1; i < NINTR_LINUX; i++)
     {
       /*
        * irq2 and irq13 should be igonored.

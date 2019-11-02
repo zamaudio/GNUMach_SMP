@@ -174,6 +174,7 @@ void disable_irq(unsigned int irq);
 #define LAPIC_ENABLE_SPURIOUS 		(1 << 8)
 
 #define IOAPIC_NINTR			24
+#define NINTR				(IOAPIC_NINTR + 1)
 #define IOAPIC_FIXED			0
 #define IOAPIC_EXTINT			7
 #define IOAPIC_PHYSICAL			0
