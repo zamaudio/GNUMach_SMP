@@ -58,7 +58,11 @@
 #include <i386/ktss.h>
 #include <i386/ldt.h>
 #include <i386/machspl.h>
-#include <i386/pic.h>
+#ifdef APIC
+# include "imps/apic.h"
+#else
+# include <i386/pic.h>
+#endif
 #include <i386/pit.h>
 #include <i386/pmap.h>
 #include <i386/proc_reg.h>
@@ -569,6 +573,9 @@ if(ncpu == 1){
 
     int_stack_base = (vm_offset_t)&int_stack;
     int_stack_top = int_stack_base + KERNEL_STACK_SIZE - 4;
+
+    /* Configure the IOAPIC */
+    ioapic_configure();
 }
 
 /*
