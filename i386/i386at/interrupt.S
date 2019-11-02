@@ -16,10 +16,8 @@
 #include <mach/machine/asm.h>
 
 #include <i386/ipl.h>
-#include <i386/pic.h>
+#include "imps/apic.h"
 #include <i386/i386asm.h>
-
-#define READ_ISR	(OCW_TEMPLATE|READ_NEXT_RD|READ_IS_ONRD)
 
 /*
  * Generic interrupt handler.
@@ -42,11 +40,6 @@ ENTRY(interrupt)
 	cli				/* XXX no more nested interrupts */
 	popl	%eax			/* restore irq number */
 	movl	%eax,%ecx		/* copy irq number */
-	movb	$(NON_SPEC_EOI),%al	/* non-specific EOI */
-	outb	%al,$(PIC_MASTER_ICW)	/* ack interrupt to master */
-	cmpl	$8,%ecx			/* do we need to ack slave? */
-	jl	1f			/* no, skip it */
-	outb	%al,$(PIC_SLAVE_ICW)
-1:
+	call	EXT(lapic_eoi)		/* EOI */
 	ret				/* return */
 END(interrupt)
