@@ -43,7 +43,7 @@ typedef struct ApicIoUnit
 struct ioapic {
     uint8_t apic_id;
     uint32_t addr;
-    uint32_t base;
+    uint32_t gsi_base;
 };
 
 extern int nioapic;
@@ -152,6 +152,7 @@ union ioapic_route_entry_union {
 };
 
 extern volatile ApicLocalUnit* lapic;
+extern volatile ApicIoUnit* ioapic;
 
 /* PIC emulation */
 extern void form_pic_mask (void);
@@ -187,14 +188,13 @@ void ioapic_configure(void);
 #define APIC_IO_REDIR_LOW(int_pin)	(0x10+(int_pin)*2)
 #define APIC_IO_REDIR_HIGH(int_pin)	(0x11+(int_pin)*2)
 
-/* Address at which the local unit is mapped in kernel virtual memory.
- *   Must be constant.  
- * TODO: Get real address from ACPI tables
-*/
+/* Addresses at which the apic units are mapped in kernel virtual memory. */
 
 #define APIC_LOCAL_VA	lapic
+#define APIC_IO_VA	ioapic
 
 #define apic_local_unit (*((volatile ApicLocalUnit*)APIC_LOCAL_VA))
+#define apic_io_unit (*((volatile ApicIoUnit*)APIC_IO_VA))
 
 
 /* Set or clear a bit in a 255-bit APIC mask register.

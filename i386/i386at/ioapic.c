@@ -95,17 +95,15 @@ prtnull(int unit)
 static uint32_t
 ioapic_read(uint8_t apic, uint8_t reg)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].base;
-    hw[0] = reg;
-    return hw[4];
+    apic_io_unit->select.r = reg;
+    return apic_io_unit->window.r;
 }
 
 static void
 ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].base;
-    hw[0] = reg;
-    hw[4] = value;
+    apic_io_unit->select.r = reg;
+    apic_io_unit->window.r = value;
 }
 
 static struct ioapic_route_entry
@@ -144,7 +142,7 @@ ioapic_toggle_entry(int apic, int pin, int mask)
 static void
 lapic_enable_ioapic(void)
 {
-    apic_local_unit.spurious_vector.r
+    apic_local_unit->spurious_vector.r
 	|= LAPIC_ENABLE_SPURIOUS | IOAPIC_SPURIOUS_BASE;
 }
 
@@ -159,14 +157,16 @@ ioapic_toggle(int pin, int mask)
 void
 lapic_eoi(void)
 {
-    apic_local_unit.eoi.r = 0;
+    apic_local_unit->eoi.r = 0;
 }
 
 
 void
 ioapic_configure(void)
 {
+    /* Assume first IO APIC maps to GSI base 0 */
     int i, pin, apic = 0;
+
     union ioapic_route_entry_union entry = {{0, 0}};
 
     entry.both.delvmode = IOAPIC_FIXED;

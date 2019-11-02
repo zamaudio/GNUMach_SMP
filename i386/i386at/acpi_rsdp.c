@@ -25,7 +25,10 @@
 #include <kern/debug.h>
 
 volatile ApicLocalUnit* lapic = (void*) 0;
+volatile ApicIoUnit* ioapic = (void*) 0;
 uint32_t lapic_addr = 0;
+uint32_t ioapic_addr = 0;
+
 int ncpu = 1;
 int nioapic = 0;
 
@@ -281,7 +284,7 @@ acpi_apic_setup(){
                 /*Insert ioapic in ioapics array*/
                 ioapics[nioapic].apic_id = ioapic_entry->apic_id;
                 ioapics[nioapic].addr = ioapic_entry->addr;
-                ioapics[nioapic].base = ioapic_entry->base;
+                ioapics[nioapic].gsi_base = ioapic_entry->gsi_base;
 
                 //Increase number of ioapic
                 nioapic++;
@@ -303,6 +306,8 @@ acpi_apic_setup(){
 
 int extra_setup()
 {
+  /* LAPIC hack */
+
   if (lapic_addr == 0)
   {
     printf("LAPIC mapping skipped\n");
@@ -323,6 +328,24 @@ int extra_setup()
     printf("LAPIC mapped: physical: 0x%lx virtual: 0x%lx version: 0x%x\n",
            (unsigned long)lapic_addr, (unsigned long)virt,
            (unsigned)lapic->version.r);
-    return 0;
   }
+
+  /* IOAPIC hack */
+  vm_offset_t virt2 = 0;
+  // TODO: FIX: it might be desirable to map IOAPIC memory with attribute PCD
+  //            (Page Cache Disable)
+  long ret = vm_map_physical(&virt2, ioapics[0].addr, sizeof(ApicIoUnit), 0);
+  if (ret)
+  {
+    panic("Could not map IOAPIC");
+    return -1;
+  }
+  else
+  {
+    ioapic = (ApicIoUnit*)virt2;
+    printf("IOAPIC mapped: physical: 0x%lx virtual: 0x%lx\n",
+           (unsigned long)ioapics[0].addr, (unsigned long)virt2);
+  }
+
+  return 0;
 }
