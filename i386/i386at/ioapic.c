@@ -95,15 +95,15 @@ prtnull(int unit)
 static uint32_t
 ioapic_read(uint8_t apic, uint8_t reg)
 {
-    apic_io_unit->select.r = reg;
-    return apic_io_unit->window.r;
+    ioapic->select.r = reg;
+    return ioapic->window.r;
 }
 
 static void
 ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
 {
-    apic_io_unit->select.r = reg;
-    apic_io_unit->window.r = value;
+    ioapic->select.r = reg;
+    ioapic->window.r = value;
 }
 
 static struct ioapic_route_entry
@@ -142,7 +142,7 @@ ioapic_toggle_entry(int apic, int pin, int mask)
 static void
 lapic_enable_ioapic(void)
 {
-    apic_local_unit->spurious_vector.r
+    lapic->spurious_vector.r
 	|= LAPIC_ENABLE_SPURIOUS | IOAPIC_SPURIOUS_BASE;
 }
 
@@ -157,7 +157,7 @@ ioapic_toggle(int pin, int mask)
 void
 lapic_eoi(void)
 {
-    apic_local_unit->eoi.r = 0;
+    lapic->eoi.r = 0;
 }
 
 

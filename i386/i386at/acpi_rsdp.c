@@ -27,7 +27,6 @@
 volatile ApicLocalUnit* lapic = (void*) 0;
 volatile ApicIoUnit* ioapic = (void*) 0;
 uint32_t lapic_addr = 0;
-uint32_t ioapic_addr = 0;
 
 int ncpu = 1;
 int nioapic = 0;
@@ -334,7 +333,7 @@ int extra_setup()
   vm_offset_t virt2 = 0;
   // TODO: FIX: it might be desirable to map IOAPIC memory with attribute PCD
   //            (Page Cache Disable)
-  long ret = vm_map_physical(&virt2, ioapics[0].addr, sizeof(ApicIoUnit), 0);
+  ret = vm_map_physical(&virt2, ioapics[0].addr, sizeof(ApicIoUnit), 0);
   if (ret)
   {
     panic("Could not map IOAPIC");
