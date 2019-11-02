@@ -171,7 +171,12 @@ void disable_irq(unsigned int irq);
 
 #endif
 
-#define LAPIC_ENABLE_SPURIOUS 		(1 << 8)
+#define LAPIC_ENABLE	 		0x100
+#define LAPIC_NMI			0x400
+#define LAPIC_DISABLE			0x10000
+#define LAPIC_TIMER_PERIODIC		0x20000
+#define LAPIC_TIMER_DIVIDE_16		3
+#define LAPIC_TIMER_BASEDIV		0x100000
 
 #define IOAPIC_NINTR			24
 #define NINTR				(IOAPIC_NINTR + 1)
