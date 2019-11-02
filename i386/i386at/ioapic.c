@@ -163,6 +163,21 @@ lapic_eoi(void)
     lapic->eoi.r = 0;
 }
 
+#ifndef LINUX_DEV
+void
+enable_irq(unsigned int irq)
+{
+    asm("cli");
+    ioapic_toggle(irq, IOAPIC_MASK_ENABLED);
+}
+
+void
+disable_irq(unsigned int irq)
+{
+    asm("cli");
+    ioapic_toggle(irq, IOAPIC_MASK_DISABLED);
+}
+#endif
 
 void
 ioapic_configure(void)

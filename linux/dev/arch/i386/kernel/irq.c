@@ -29,7 +29,11 @@
 #include <kern/assert.h>
 
 #include <i386/spl.h>
-#include <i386/pic.h>
+#ifdef APIC
+# include "imps/apic.h"
+#else
+# include <i386/pic.h>
+#endif
 #include <i386/pit.h>
 
 #define MACH_INCLUDE
@@ -160,6 +164,9 @@ linux_intr (int irq)
 static inline void
 mask_irq (unsigned int irq_nr)
 {
+#ifdef APIC
+  ioapic_toggle(irq_nr, IOAPIC_MASK_DISABLED);
+#else
   int i;
 
   for (i = 0; i < intpri[irq_nr]; i++)
@@ -173,6 +180,7 @@ mask_irq (unsigned int irq_nr)
       else
 	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
     }
+#endif
 }
 
 /*
@@ -181,6 +189,9 @@ mask_irq (unsigned int irq_nr)
 static inline void
 unmask_irq (unsigned int irq_nr)
 {
+#ifdef APIC
+  ioapic_toggle(irq_nr, IOAPIC_MASK_ENABLED);
+#else
   int mask, i;
 
   mask = 1 << irq_nr;
@@ -198,6 +209,7 @@ unmask_irq (unsigned int irq_nr)
       else
 	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
     }
+#endif
 }
 
 void
