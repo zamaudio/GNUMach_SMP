@@ -95,7 +95,7 @@ prtnull(int unit)
 static uint32_t
 ioapic_read(uint8_t apic, uint8_t reg)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].addr;
+    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].base;
     hw[0] = reg;
     return hw[4];
 }
@@ -103,7 +103,7 @@ ioapic_read(uint8_t apic, uint8_t reg)
 static void
 ioapic_write(uint8_t apic, uint8_t reg, uint32_t value)
 {
-    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].addr;
+    uint32_t volatile *hw = (uint32_t volatile *)ioapics[apic].base;
     hw[0] = reg;
     hw[4] = value;
 }
