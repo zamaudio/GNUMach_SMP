@@ -12,6 +12,13 @@
 
 #define NINTR (IOAPIC_NINTR + 1)
 
+spl_t	curr_ipl;
+int	pic_mask[NSPL];
+int	curr_pic_mask;
+
+int	iunit[NINTR] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+			16, 17, 18, 19, 20, 21, 22, 23, 24};
+
 void (*ivect[NINTR])() = {
 	/* 00 */	hardclock,	/* always */
 	/* 01 */	kdintr,		/* kdintr, ... */
@@ -44,6 +51,26 @@ void (*ivect[NINTR])() = {
 	
 	/* 255 */	intnull,	/* spurious */
 };
+
+void
+form_pic_mask(void)
+{
+    /* empty */
+}
+
+void
+intnull(int unit_dev)
+{
+	printf("intnull(%d)\n", unit_dev);
+}
+
+int prtnull_count = 0;
+
+void
+prtnull(int unit)
+{
+	++prtnull_count;
+}
 
 static uint32_t
 ioapic_read(uint8_t apic, uint8_t reg)

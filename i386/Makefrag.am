@@ -56,10 +56,9 @@ libkernel_a_SOURCES += \
 	i386/i386at/kdsoft.h \
 	i386/i386at/mem.c \
 	i386/i386at/mem.h \
-	i386/i386at/pic_isa.c \
-	i386/i386at/ioapic.c \
 	i386/i386at/rtc.c \
 	i386/i386at/rtc.h
+
 endif
 
 #
@@ -154,12 +153,22 @@ EXTRA_DIST += \
 	i386/i386/mach_i386.srv
 
 if PLATFORM_at
+
+if enable_apic
+libkernel_a_SOURCES += \
+	imps/apic.h \
+	i386/i386at/ioapic.c
+else
+libkernel_a_SOURCES += \
+	i386/i386/pic.c \
+	i386/i386/pic.h
+	i386/i386at/pic_isa.c \
+endif
+
 libkernel_a_SOURCES += \
 	i386/i386/hardclock.c \
 	i386/i386/hardclock.h \
 	i386/i386/io_map.c \
-	i386/i386/pic.c \
-	i386/i386/pic.h \
 	i386/i386/pit.c \
 	i386/i386/pit.h
 endif

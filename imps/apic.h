@@ -153,6 +153,13 @@ union ioapic_route_entry_union {
 
 extern volatile ApicLocalUnit* lapic;
 
+/* PIC emulation */
+extern void form_pic_mask (void);
+extern int curr_pic_mask;
+extern int pic_mask[];
+extern void prtnull(int unit);
+extern void intnull(int unit);
+
 void lapic_eoi(void);
 void ioapic_toggle(int pin, int mask);
 void ioapic_configure(void);

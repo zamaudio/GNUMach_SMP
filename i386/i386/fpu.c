@@ -51,7 +51,11 @@
 #include <i386/thread.h>
 #include <i386/fpu.h>
 #include <i386/pio.h>
-#include <i386/pic.h>
+#ifdef APIC
+# include "imps/apic.h"
+#else
+# include <i386/pic.h>
+#endif
 #include <i386/locore.h>
 #include <i386/trap.h>
 #include "cpu_number.h"

@@ -51,7 +51,11 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <kern/mach_clock.h>
 #include <i386/ipl.h>
-#include <i386/pic.h>
+#ifdef APIC
+# include "imps/apic.h"
+#else
+# include <i386/pic.h>
+#endif
 #include <i386/pit.h>
 #include <i386/pio.h>
 
