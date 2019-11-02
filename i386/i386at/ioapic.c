@@ -14,7 +14,7 @@
 #define NINTR (IOAPIC_NINTR + 1)
 
 spl_t	curr_ipl;
-int	pic_mask[NSPL];
+int	pic_mask[NSPL] = {0};
 int	curr_pic_mask;
 
 int	iunit[NINTR] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -67,6 +67,9 @@ void
 picdisable(void)
 {
 	asm("cli");
+
+	curr_ipl = SPLHI;
+	curr_pic_mask = pic_mask[SPLHI];
 
 	outb(0xa1, 0xff);
 	outb(0x21, 0xff);
