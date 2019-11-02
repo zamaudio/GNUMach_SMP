@@ -94,11 +94,27 @@ ioapic_toggle_entry(int apic, int pin, int mask)
     ioapic_write(apic, APIC_IO_REDIR_LOW(pin), entry.lo);
 }
 
+static void
+lapic_enable_ioapic(void)
+{
+    apic_local_unit.spurious_vector.r
+	|= LAPIC_ENABLE_SPURIOUS | IOAPIC_SPURIOUS_BASE;
+}
+
 void
 ioapic_toggle(int pin, int mask)
 {
-    ioapic_toggle_entry(0, pin, mask);
+    int apic = 0;
+
+    ioapic_toggle_entry(apic, pin, mask);
 }
+
+void
+lapic_eoi(void)
+{
+    apic_local_unit.eoi.r = 0;
+}
+
 
 void
 ioapic_configure(void)
@@ -108,13 +124,26 @@ ioapic_configure(void)
 
     entry.both.delvmode = IOAPIC_FIXED;
     entry.both.destmode = IOAPIC_PHYSICAL;
-    entry.both.polarity = IOAPIC_ACTIVE_LOW;
-    entry.both.trigger = IOAPIC_LEVEL_TRIGGER;
     entry.both.mask = IOAPIC_MASK_ENABLED;
+    entry.both.dest = ioapic[apic].apic_id & 0xf;
 
-    for (pin = 0; pin < IOAPIC_NINTR; pin++) {
+    /* ISA legacy IRQs */
+    entry.both.polarity = IOAPIC_ACTIVE_HIGH;
+    entry.both.trigger = IOAPIC_EDGE_TRIGGER;
+
+    for (pin = 0; pin < 16; pin++) {
         entry.both.vector = IOAPIC_INT_BASE + pin;
-	entry.both.dest = ioapic[apic].apic_id & 0xf;
 	ioapic_write_entry(apic, pin, entry.both);
     }
+
+    /* PCI IRQs PIRQ A-H */
+    entry.both.polarity = IOAPIC_ACTIVE_LOW;
+    entry.both.trigger = IOAPIC_LEVEL_TRIGGER;
+
+    for (pin = 16; pin < 24; pin++) {
+        entry.both.vector = IOAPIC_INT_BASE + pin;
+	ioapic_write_entry(apic, pin, entry.both);
+    }
+
+    lapic_enable_ioapic();
 }

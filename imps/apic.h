@@ -29,8 +29,8 @@
 
 typedef struct ApicReg
 {
-	unsigned r;	/* the actual register */
-	unsigned p[3];	/* pad to the next 128-bit boundary */
+	uint32_t r;	/* the actual register */
+	uint32_t p[3];	/* pad to the next 128-bit boundary */
 } ApicReg;
 
 typedef struct ApicIoUnit
@@ -141,7 +141,7 @@ struct ioapic_route_entry {
 	     reserved1   : 15;
     uint32_t reserved2   : 24,
 	     dest        : 8;
-} __attribute__ ((packed))
+} __attribute__ ((packed));
 
 union ioapic_route_entry_union {
     struct {
@@ -153,10 +153,13 @@ union ioapic_route_entry_union {
 
 extern volatile ApicLocalUnit* lapic;
 
+void lapic_eoi(void);
 void ioapic_toggle(int pin, int mask);
 void ioapic_configure(void);
 
 #endif
+
+#define LAPIC_ENABLE_SPURIOUS 		(1 << 8)
 
 #define IOAPIC_FIXED			0
 #define IOAPIC_EXTINT			7
