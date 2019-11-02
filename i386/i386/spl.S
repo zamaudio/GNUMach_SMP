@@ -39,18 +39,6 @@
 	movl	%edx,%eax;		\
 	ret
 
-/*
- * Program PICs with mask in %eax.
- */
-#define SETMASK()				\
-	cmpl	EXT(curr_pic_mask),%eax;	\
-	je	9f;				\
-	outb	%al,$(PIC_MASTER_OCW);		\
-	movl	%eax,EXT(curr_pic_mask);	\
-	movb	%ah,%al;			\
-	outb	%al,$(PIC_SLAVE_OCW);		\
-9:
-
 ENTRY(spl0)
 	mb;
 	movl	EXT(curr_ipl),%eax	/* save current ipl */
@@ -62,13 +50,6 @@ ENTRY(spl0)
 	call	EXT(spl1)		/* block further interrupts */
 	call	EXT(softclock)		/* go handle interrupt */
 	cli				/* disable interrupts */
-1:
-	cmpl	$(SPL0),EXT(curr_ipl)	/* are we at spl0? */
-	je	1f			/* yes, all done */
-	movl	$(SPL0),EXT(curr_ipl)	/* set ipl */
-	movl	EXT(pic_mask)+SPL0*4,%eax
-					/* get PIC mask */
-	SETMASK()			/* program PICs with new mask */
 1:
 	sti				/* enable interrupts */
 	popl	%eax			/* return previous mask */
@@ -152,7 +133,6 @@ splx_cli:
 	movl	%edx,EXT(curr_ipl)	/* set ipl */
 	movl	EXT(pic_mask)(,%edx,4),%eax
 					/* get PIC mask */
-	SETMASK()			/* program PICs with new mask */
 1:
 	ret
 
@@ -169,7 +149,6 @@ spl:
 					/* get PIC mask */
 	cli				/* disable interrupts */
 	xchgl	EXT(curr_ipl),%edx	/* set ipl */
-	SETMASK()			/* program PICs with new mask */
 	sti				/* enable interrupts */
 	movl	%edx,%eax		/* return previous ipl */
 	ret
