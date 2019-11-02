@@ -652,7 +652,7 @@ INTERRUPT(21)
 INTERRUPT(22)
 INTERRUPT(23)
 /* Spurious interrupt maps to vector 0xff */
-INTERRUPT(255)
+INTERRUPT(24)
 
 /* XXX handle NMI - at least print a warning like Linux does.  */
 
