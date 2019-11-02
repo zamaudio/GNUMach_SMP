@@ -621,9 +621,9 @@ AC_DEFUN([hurd_host_CPU], [
   esac]
 
   # The glue code dependend code checks for this.
-  AC_DEFINE([LINUX_DEV], [0], [Linux device drivers.])
+  AC_DEFINE([LINUX_DEV], [1], [Linux device drivers.])
   # Instead of Mach's KERNEL, Linux uses __KERNEL__.  Whee.
-  AC_DEFINE([__KERNEL__], [0], [__KERNEL__])
+  AC_DEFINE([__KERNEL__], [1], [__KERNEL__])
   [if [ $mach_ncpus -gt 1 ]; then]
     AC_DEFINE([__SMP__], [1], [__SMP__])
   [fi]
