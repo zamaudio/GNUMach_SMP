@@ -79,3 +79,5 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #endif	/* AT386 */
 
 extern void clkstart(void);
+extern void pit_prepare_sleep(int usec);
+extern void pit_sleep(void);
