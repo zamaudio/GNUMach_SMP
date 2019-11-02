@@ -161,8 +161,8 @@ libkernel_a_SOURCES += \
 else
 libkernel_a_SOURCES += \
 	i386/i386/pic.c \
-	i386/i386/pic.h
-	i386/i386at/pic_isa.c \
+	i386/i386/pic.h \
+	i386/i386at/pic_isa.c
 endif
 
 libkernel_a_SOURCES += \
