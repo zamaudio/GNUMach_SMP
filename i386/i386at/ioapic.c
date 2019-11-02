@@ -9,6 +9,7 @@
 #include <i386at/kd.h>
 #include <i386at/idt.h>
 #include <i386/pio.h>
+#include <i386/pit.h>
 #include "imps/apic.h"
 
 spl_t	curr_ipl;
@@ -173,7 +174,7 @@ pit_measure_apic_hz(void)
     /* Stop APIC timer */
     lapic->lvt_timer.r = LAPIC_DISABLE;
 
-    return start - lapic->cur_count;
+    return start - lapic->cur_count.r;
 }
 
 static void

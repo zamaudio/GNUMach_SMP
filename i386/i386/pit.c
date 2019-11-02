@@ -69,8 +69,40 @@ int pit0_mode = PIT_C0|PIT_SQUAREMODE|PIT_READMODE ;
 unsigned int clknumb = CLKNUM;		/* interrupt interval for timer 0 */
 
 void
+pit_prepare_sleep(int usec)
+{
+    /* Prepare to sleep for usec microseconds */
+    int val = 0;
+    int lsb, msb;
+
+    val = (inb(0x61) & 0xfd) | 0x1;
+    outb(0x61, val);
+    outb(0x43, 0xb2);
+    val = (CLKNUM * usec) / 1000000;
+    lsb = val & 0xff;
+    msb = val >> 8;
+    outb(0x42, lsb);
+    val = inb(0x60);
+    outb(0x42, msb);
+
+    /* Start counting down */
+    val = inb(0x61) & 0xfe;
+    outb(0x61, val); /* Gate low */
+    val |= 0x1;
+    outb(0x61, val); /* Gate high */
+}
+
+void
+pit_sleep(void)
+{
+    /* Wait until counter reaches zero */
+    while ((inb(0x61) & 0x20) == 0);
+}
+
+void
 clkstart(void)
 {
+#ifndef APIC
 	unsigned char	byte;
 	unsigned long s;
 
@@ -90,4 +122,5 @@ clkstart(void)
 	byte = clknumb>>8;
 	outb(pitctr0_port, byte); 
 	splon(s);         /* restore interrupt state */
+#endif
 }
