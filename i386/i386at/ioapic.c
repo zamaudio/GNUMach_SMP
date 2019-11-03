@@ -68,6 +68,8 @@ picdisable(void)
 {
 	asm("cli");
 
+	form_pic_mask();
+
 	curr_ipl = SPLHI;
 	curr_pic_mask = pic_mask[SPLHI];
 
@@ -82,7 +84,15 @@ picdisable(void)
 void
 form_pic_mask(void)
 {
-    /* empty */
+	unsigned int i, j, bit, mask;
+
+	for (i=SPL0; i < NSPL; i++) {
+		for (j=0x00, bit=0x01, mask = 0; j < NINTR; j++, bit<<=1)
+			if (intpri[j] <= i)
+				mask |= bit;
+
+		pic_mask[i] = mask;
+	}
 }
 
 void
@@ -221,6 +231,20 @@ ioapic_toggle(int pin, int mask)
 
     if (pin < IOAPIC_NINTR) {
         ioapic_toggle_entry(apic, pin, mask);
+    }
+}
+
+void
+ioapic_mask_irqs(void)
+{
+    int i, bit = 0x1;
+
+    for (i = 0; i < NINTR; i++, bit<<=1) {
+        if (curr_pic_mask & bit) {
+            ioapic_toggle(i, IOAPIC_MASK_DISABLED);
+        } else {
+            ioapic_toggle(i, IOAPIC_MASK_ENABLED);
+        }
     }
 }
 

@@ -164,6 +164,7 @@ extern void intnull(int unit);
 extern void picdisable(void);
 
 void lapic_eoi(void);
+void ioapic_mask_irqs(void);
 void ioapic_toggle(int pin, int mask);
 void ioapic_configure(void);
 void enable_irq(unsigned int irq);

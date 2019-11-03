@@ -21,12 +21,21 @@
 #include <mach/machine/asm.h>
 #include <i386/ipl.h>
 #include <i386/i386asm.h>
+#include "imps/apic.h"
 
 #if NCPUS > 1
 #define mb lock; addl $0,(%esp)
 #else
 #define mb
 #endif
+
+/* Mask APIC irqs with bits from %eax */
+#define SETMASK() \
+	cmpl    EXT(curr_pic_mask),%eax;        \
+	je      9f;				\
+	movl    %eax,EXT(curr_pic_mask);        \
+	call	EXT(ioapic_mask_irqs);		\
+9:
 
 /*
  * Set IPL to the specified value.
@@ -82,6 +91,7 @@ ENTRY(spl0)
 	movl	$(SPL0),EXT(curr_ipl)	/* set ipl */
 	movl	EXT(pic_mask)+SPL0*4,%eax
 					/* get PIC mask */
+	SETMASK()
 1:
 	sti				/* enable interrupts */
 	popl	%eax			/* return previous mask */
@@ -195,6 +205,7 @@ splx_cli:
 	movl	%edx,EXT(curr_ipl)	/* set ipl */
 	movl	EXT(pic_mask)(,%edx,4),%eax
 					/* get PIC mask */
+	SETMASK()
 1:
 	ret
 
@@ -223,9 +234,11 @@ spl:
 					/* get PIC mask */
 	cli				/* disable interrupts */
 	xchgl	EXT(curr_ipl),%edx	/* set ipl */
+	SETMASK()
 	sti				/* enable interrupts */
 	movl	%edx,%eax		/* return previous ipl */
 	ret
+
 
 ENTRY(sploff)
 	pushfl
