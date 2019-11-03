@@ -51,11 +51,7 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <kern/mach_clock.h>
 #include <i386/ipl.h>
-#ifdef APIC
-# include "imps/apic.h"
-#else
-# include <i386/pic.h>
-#endif
+#include "imps/apic.h"
 #include <i386/pit.h>
 #include <i386/pio.h>
 
@@ -102,12 +98,12 @@ pit_sleep(void)
 void
 clkstart(void)
 {
-#ifndef APIC
-	unsigned char	byte;
-	unsigned long s;
-
 	intpri[0] = SPLHI;
 	form_pic_mask();
+
+#ifndef APIC
+	unsigned long s;
+	unsigned char	byte;
 
 	s = sploff();         /* disable interrupts */
 

@@ -23,6 +23,9 @@
 #ifndef _IMPS_APIC_
 #define _IMPS_APIC_
 
+#include <i386/pic.h>
+#undef NINTR
+
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
@@ -153,15 +156,6 @@ union ioapic_route_entry_union {
 
 extern volatile ApicLocalUnit* lapic;
 extern volatile ApicIoUnit* ioapic;
-
-/* PIC emulation */
-extern void form_pic_mask (void);
-extern int curr_pic_mask;
-extern int pic_mask[];
-extern int intpri[];
-extern void prtnull(int unit);
-extern void intnull(int unit);
-extern void picdisable(void);
 
 void lapic_eoi(void);
 void ioapic_mask_irqs(void);

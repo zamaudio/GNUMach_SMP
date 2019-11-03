@@ -20,6 +20,13 @@ int	curr_pic_mask;
 int	iunit[NINTR] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 			16, 17, 18, 19, 20, 21, 22, 23, 24};
 
+unsigned short	master_icw, master_ocw, slaves_icw, slaves_ocw;
+
+u_short PICM_ICW1, PICM_OCW1, PICS_ICW1, PICS_OCW1 ;
+u_short PICM_ICW2, PICM_OCW2, PICS_ICW2, PICS_OCW2 ;
+u_short PICM_ICW3, PICM_OCW3, PICS_ICW3, PICS_OCW3 ;
+u_short PICM_ICW4, PICS_ICW4 ;
+
 void (*ivect[NINTR])() = {
 	/* 00 */	hardclock,	/* always */
 	/* 01 */	kdintr,		/* kdintr, ... */
@@ -66,6 +73,7 @@ int intpri[NINTR] = {
 void
 picdisable(void)
 {
+
 	asm("cli");
 
 	form_pic_mask();
@@ -73,12 +81,89 @@ picdisable(void)
 	curr_ipl = SPLHI;
 	curr_pic_mask = pic_mask[SPLHI];
 
-	outb(0xa1, 0xff);
-	outb(0x21, 0xff);
+	/*
+	** Generate addresses to each PIC port.
+	*/
 
-	/* Disable PIC */
-	outb(IMCR_SELECT, MODE_IMCR);	/* select IMCR */
-	outb(IMCR_DATA, IMCR_USE_APIC);	/* force NMI and INTR through APIC */
+	master_icw = PIC_MASTER_ICW;
+	master_ocw = PIC_MASTER_OCW;
+	slaves_icw = PIC_SLAVE_ICW;
+	slaves_ocw = PIC_SLAVE_OCW;
+
+	/*
+	** Select options for each ICW and each OCW for each PIC.
+	*/
+
+	PICM_ICW1 =
+	(ICW_TEMPLATE | EDGE_TRIGGER | ADDR_INTRVL8 | CASCADE_MODE | ICW4__NEEDED);
+
+	PICS_ICW1 =
+	(ICW_TEMPLATE | EDGE_TRIGGER | ADDR_INTRVL8 | CASCADE_MODE | ICW4__NEEDED);
+
+	PICM_ICW2 = PICM_VECTBASE;
+	PICS_ICW2 = PICS_VECTBASE;
+
+#ifdef	AT386
+	PICM_ICW3 = ( SLAVE_ON_IR2 );
+	PICS_ICW3 = ( I_AM_SLAVE_2 );
+#endif	/* AT386 */
+
+	PICM_ICW4 =
+ 	(SNF_MODE_DIS | NONBUFD_MODE | NRML_EOI_MOD | I8086_EMM_MOD);
+	PICS_ICW4 =
+ 	(SNF_MODE_DIS | NONBUFD_MODE | NRML_EOI_MOD | I8086_EMM_MOD);
+
+	PICM_OCW1 = PIC_MASK_ZERO;
+	PICS_OCW1 = PIC_MASK_ZERO;
+
+	PICM_OCW2 = NON_SPEC_EOI;
+	PICS_OCW2 = NON_SPEC_EOI;
+
+	PICM_OCW3 = (OCW_TEMPLATE | READ_NEXT_RD | READ_IR_ONRD );
+	PICS_OCW3 = (OCW_TEMPLATE | READ_NEXT_RD | READ_IR_ONRD );
+
+
+	/*
+	** Initialise master - send commands to master PIC
+	*/
+
+	outb ( master_icw, PICM_ICW1 );
+	outb ( master_ocw, PICM_ICW2 );
+	outb ( master_ocw, PICM_ICW3 );
+	outb ( master_ocw, PICM_ICW4 );
+
+	outb ( master_ocw, PIC_MASK_ZERO );
+	outb ( master_icw, PICM_OCW3 );
+
+	/*
+	** Initialise slave - send commands to slave PIC
+	*/
+
+	outb ( slaves_icw, PICS_ICW1 );
+	outb ( slaves_ocw, PICS_ICW2 );
+	outb ( slaves_ocw, PICS_ICW3 );
+	outb ( slaves_ocw, PICS_ICW4 );
+
+
+	outb ( slaves_ocw, PIC_MASK_ZERO );
+	outb ( slaves_icw, PICS_OCW3 );
+
+	/*
+	** Disable interrupts
+	*/
+	outb ( master_ocw, PIC_MASK_ZERO );
+
+	/*
+	** Disable PIC
+	*/
+	outb ( slaves_ocw, 0xff );
+	outb ( master_ocw, 0xff );
+	
+	/*
+	** Route interrupts through IOAPIC
+	*/
+	outb(IMCR_SELECT, MODE_IMCR);
+	outb(IMCR_DATA, IMCR_USE_APIC);
 }
 
 void
@@ -195,8 +280,6 @@ pit_measure_apic_hz(void)
 static void
 lapic_enable_timer_ioapic(void)
 {
-    uint32_t magic_timer_value_hz = 0;
-
     lapic->dest_format.r = 0xffffffff;	/* flat model */
     lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
     lapic->lvt_timer.r = LAPIC_DISABLE;
@@ -241,9 +324,9 @@ ioapic_mask_irqs(void)
 
     for (i = 0; i < NINTR; i++, bit<<=1) {
         if (curr_pic_mask & bit) {
-            ioapic_toggle(i, IOAPIC_MASK_DISABLED);
-        } else {
             ioapic_toggle(i, IOAPIC_MASK_ENABLED);
+        } else {
+            ioapic_toggle(i, IOAPIC_MASK_DISABLED);
         }
     }
 }
@@ -274,7 +357,7 @@ void
 ioapic_configure(void)
 {
     /* Assume first IO APIC maps to GSI base 0 */
-    int i, pin, apic = 0;
+    int pin, apic = 0;
 
     union ioapic_route_entry_union entry = {{0, 0}};
 

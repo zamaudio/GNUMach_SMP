@@ -29,11 +29,10 @@
 #include <kern/assert.h>
 
 #include <i386/spl.h>
+#include "imps/apic.h"
 #ifdef APIC
-# include "imps/apic.h"
 # define NINTR_LINUX IOAPIC_NINTR
 #else
-# include <i386/pic.h>
 # define NINTR_LINUX NINTR
 #endif
 #include <i386/pit.h>
@@ -160,9 +159,6 @@ linux_intr (int irq)
 static inline void
 mask_irq (unsigned int irq_nr)
 {
-#ifdef APIC
-  ioapic_toggle(irq_nr, IOAPIC_MASK_DISABLED);
-#else
   int i;
 
   for (i = 0; i < intpri[irq_nr]; i++)
@@ -171,12 +167,17 @@ mask_irq (unsigned int irq_nr)
   if (curr_pic_mask != pic_mask[curr_ipl])
     {
       curr_pic_mask = pic_mask[curr_ipl];
+      
+#ifdef APIC
+      ioapic_toggle(irq_nr, IOAPIC_MASK_DISABLED);
+#else
       if (irq_nr < 8)
 	outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
       else
 	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
-    }
 #endif
+      
+    }
 }
 
 /*
@@ -185,9 +186,6 @@ mask_irq (unsigned int irq_nr)
 static inline void
 unmask_irq (unsigned int irq_nr)
 {
-#ifdef APIC
-  ioapic_toggle(irq_nr, IOAPIC_MASK_ENABLED);
-#else
   int mask, i;
 
   mask = 1 << irq_nr;
@@ -200,12 +198,15 @@ unmask_irq (unsigned int irq_nr)
   if (curr_pic_mask != pic_mask[curr_ipl])
     {
       curr_pic_mask = pic_mask[curr_ipl];
+#ifdef APIC
+      ioapic_toggle(irq_nr, IOAPIC_MASK_ENABLED);
+#else
       if (irq_nr < 8)
 	outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
       else
 	outb (curr_pic_mask >> 8, PIC_SLAVE_OCW);
-    }
 #endif
+    }
 }
 
 void

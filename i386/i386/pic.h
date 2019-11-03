@@ -181,7 +181,6 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #ifndef __ASSEMBLER__
 extern void form_pic_mask (void);
 extern void picinit (void);
-extern void picdisable (void);
 extern int curr_pic_mask;
 extern int pic_mask[];
 extern void prtnull(int unit);

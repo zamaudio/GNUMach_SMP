@@ -58,11 +58,7 @@
 #include <i386/ktss.h>
 #include <i386/ldt.h>
 #include <i386/machspl.h>
-#ifdef APIC
-# include "imps/apic.h"
-#else
-# include <i386/pic.h>
-#endif
+#include "imps/apic.h"
 #include <i386/pit.h>
 #include <i386/pmap.h>
 #include <i386/proc_reg.h>
