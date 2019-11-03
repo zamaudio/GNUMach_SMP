@@ -10,6 +10,7 @@
 #include <i386at/idt.h>
 #include <i386/pio.h>
 #include <i386/pit.h>
+#include <kern/printf.h>
 #include "imps/apic.h"
 
 spl_t	curr_ipl;
@@ -72,6 +73,10 @@ picdisable(void)
 
 	outb(0xa1, 0xff);
 	outb(0x21, 0xff);
+
+	/* Disable PIC */
+	outb(IMCR_SELECT, MODE_IMCR);	/* select IMCR */
+	outb(IMCR_DATA, IMCR_USE_APIC);	/* force NMI and INTR through APIC */
 }
 
 void
@@ -83,7 +88,7 @@ form_pic_mask(void)
 void
 intnull(int unit_dev)
 {
-    /* empty */
+    printf("intnull(%d)\n", unit_dev);
 }
 
 int prtnull_count = 0;
@@ -214,7 +219,9 @@ ioapic_toggle(int pin, int mask)
 {
     int apic = 0;
 
-    ioapic_toggle_entry(apic, pin, mask);
+    if (pin < IOAPIC_NINTR) {
+        ioapic_toggle_entry(apic, pin, mask);
+    }
 }
 
 void

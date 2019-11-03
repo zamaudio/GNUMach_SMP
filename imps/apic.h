@@ -171,6 +171,12 @@ void disable_irq(unsigned int irq);
 
 #endif
 
+#define IMCR_SELECT	0x22
+#define IMCR_DATA	0x23
+#define MODE_IMCR	0x70
+# define IMCR_USE_PIC	0
+# define IMCR_USE_APIC	1
+
 #define LAPIC_ENABLE	 		0x100
 #define LAPIC_NMI			0x400
 #define LAPIC_DISABLE			0x10000
