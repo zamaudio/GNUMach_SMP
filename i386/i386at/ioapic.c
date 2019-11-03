@@ -187,8 +187,8 @@ lapic_enable_timer_ioapic(void)
 {
     uint32_t magic_timer_value_hz = 0;
 
-    lapic->dest_format.r = 0xffffffff;
-    lapic->logical_dest.r = (lapic->logical_dest.r & 0xffffff) | 0x1;
+    lapic->dest_format.r = 0xffffffff;	/* flat model */
+    lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
     lapic->lvt_timer.r = LAPIC_DISABLE;
     lapic->lvt_performance_monitor.r = LAPIC_NMI;
     lapic->lvt_lint0.r = LAPIC_DISABLE;
