@@ -79,82 +79,10 @@ picdisable(void)
 	curr_pic_mask = pic_mask[SPLHI];
 
 	/*
-	** Generate addresses to each PIC port.
-	*/
-
-	master_icw = PIC_MASTER_ICW;
-	master_ocw = PIC_MASTER_OCW;
-	slaves_icw = PIC_SLAVE_ICW;
-	slaves_ocw = PIC_SLAVE_OCW;
-
-	/*
-	** Select options for each ICW and each OCW for each PIC.
-	*/
-
-	PICM_ICW1 =
-	(ICW_TEMPLATE | EDGE_TRIGGER | ADDR_INTRVL8 | CASCADE_MODE | ICW4__NEEDED);
-
-	PICS_ICW1 =
-	(ICW_TEMPLATE | EDGE_TRIGGER | ADDR_INTRVL8 | CASCADE_MODE | ICW4__NEEDED);
-
-	PICM_ICW2 = PICM_VECTBASE;
-	PICS_ICW2 = PICS_VECTBASE;
-
-#ifdef	AT386
-	PICM_ICW3 = ( SLAVE_ON_IR2 );
-	PICS_ICW3 = ( I_AM_SLAVE_2 );
-#endif	/* AT386 */
-
-	PICM_ICW4 =
- 	(SNF_MODE_DIS | NONBUFD_MODE | NRML_EOI_MOD | I8086_EMM_MOD);
-	PICS_ICW4 =
- 	(SNF_MODE_DIS | NONBUFD_MODE | NRML_EOI_MOD | I8086_EMM_MOD);
-
-	PICM_OCW1 = PIC_MASK_ZERO;
-	PICS_OCW1 = PIC_MASK_ZERO;
-
-	PICM_OCW2 = NON_SPEC_EOI;
-	PICS_OCW2 = NON_SPEC_EOI;
-
-	PICM_OCW3 = (OCW_TEMPLATE | READ_NEXT_RD | READ_IR_ONRD );
-	PICS_OCW3 = (OCW_TEMPLATE | READ_NEXT_RD | READ_IR_ONRD );
-
-
-	/*
-	** Initialise master - send commands to master PIC
-	*/
-
-	outb ( master_icw, PICM_ICW1 );
-	outb ( master_ocw, PICM_ICW2 );
-	outb ( master_ocw, PICM_ICW3 );
-	outb ( master_ocw, PICM_ICW4 );
-
-	outb ( master_ocw, PIC_MASK_ZERO );
-	outb ( master_icw, PICM_OCW3 );
-
-	/*
-	** Initialise slave - send commands to slave PIC
-	*/
-
-	outb ( slaves_icw, PICS_ICW1 );
-	outb ( slaves_ocw, PICS_ICW2 );
-	outb ( slaves_ocw, PICS_ICW3 );
-	outb ( slaves_ocw, PICS_ICW4 );
-
-
-	outb ( slaves_ocw, PIC_MASK_ZERO );
-	outb ( slaves_icw, PICS_OCW3 );
-
-	/*
-	** Disable interrupts
-	*/
-	outb ( master_ocw, PIC_MASK_ZERO );
-
-	/*
 	** Disable PIC
 	*/
-	outb ( PIC_SLAVE_OCW, 0xff );
-	outb ( PIC_MASTER_OCW, 0xff );
+	outb ( 0xa1, 0xff );
+	outb ( 0x21, 0xff );
 
 	/*
 	** Route interrupts through IOAPIC
