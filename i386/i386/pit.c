@@ -101,11 +101,11 @@ clkstart(void)
 	intpri[0] = SPLHI;
 	form_pic_mask();
 
-#ifndef APIC
 	unsigned long s;
-	unsigned char	byte;
 
 	s = sploff();         /* disable interrupts */
+#ifndef APIC
+	unsigned char	byte;
 
 	/* Since we use only timer 0, we program that.
 	 * 8254 Manual specifically says you do not need to program
@@ -117,6 +117,6 @@ clkstart(void)
 	outb(pitctr0_port, byte);
 	byte = clknumb>>8;
 	outb(pitctr0_port, byte); 
-	splon(s);         /* restore interrupt state */
 #endif
+	splon(s);         /* restore interrupt state */
 }

@@ -157,6 +157,7 @@ union ioapic_route_entry_union {
 extern volatile ApicLocalUnit* lapic;
 extern volatile ApicIoUnit* ioapic;
 
+void picdisable(void);
 void lapic_eoi(void);
 void ioapic_mask_irqs(void);
 void ioapic_toggle(int pin, int mask);
