@@ -65,16 +65,16 @@ int pit0_mode = PIT_C0|PIT_SQUAREMODE|PIT_READMODE ;
 unsigned int clknumb = CLKNUM;		/* interrupt interval for timer 0 */
 
 void
-pit_prepare_sleep(int usec)
+pit_prepare_sleep(int hz)
 {
-    /* Prepare to sleep for usec microseconds */
+    /* Prepare to sleep for 1/hz seconds */
     int val = 0;
     int lsb, msb;
 
     val = (inb(0x61) & 0xfd) | 0x1;
     outb(0x61, val);
     outb(0x43, 0xb2);
-    val = (CLKNUM * usec) / 1000000;
+    val = CLKNUM / hz;
     lsb = val & 0xff;
     msb = val >> 8;
     outb(0x42, lsb);

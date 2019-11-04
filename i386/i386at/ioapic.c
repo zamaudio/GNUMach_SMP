@@ -187,8 +187,8 @@ pit_measure_apic_hz(void)
 {
     uint32_t start = 0xffffffff;
 
-    /* Prepare accurate delay for 10ms */
-    pit_prepare_sleep(10000);
+    /* Prepare accurate delay for 1/100 seconds */
+    pit_prepare_sleep(100);
 
     /* Set APIC timer */
     lapic->init_count.r = start;
