@@ -610,7 +610,7 @@ ENTRY(call_continuation)
 	jmp	*%eax				/* goto continuation */
 
 
-/* IOAPIC has 24 interrupts plus 1x spurious */
+/* IOAPIC has 24 interrupts, put spurious in the same array */
 
 #define INTERRUPT(n)				\
 	.data	2				;\
@@ -651,9 +651,10 @@ INTERRUPT(20)
 INTERRUPT(21)
 INTERRUPT(22)
 INTERRUPT(23)
+/* Spurious interrupt hack, set irq number to vect number */
+INTERRUPT(255)
 
 /* XXX handle NMI - at least print a warning like Linux does.  */
-/* XXX handle spurious */
 
 /*
  * All interrupts enter here.

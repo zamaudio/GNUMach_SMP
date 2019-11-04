@@ -27,6 +27,8 @@
 ENTRY(interrupt)
 	pushl	%eax			/* save irq number */
 	movl	%eax,%ecx		/* copy irq number */
+	cmpl	$255,%eax		/* was this a spurious intr? */
+	je	0f			/* if so, null handler */
 	shll	$2,%ecx			/* irq * 4 */
 	movl	EXT(intpri)(%ecx),%edx	/* get new ipl */
 	call	spl			/* set ipl */
@@ -41,5 +43,9 @@ ENTRY(interrupt)
 	popl	%eax			/* restore irq number */
 	movl	%eax,%ecx		/* copy irq number */
 	call	EXT(lapic_eoi)		/* EOI */
+	ret				/* return */
+0:
+	popl	%eax			/* restore irq number */
+	movl	%eax,%ecx		/* copy irq number */
 	ret				/* return */
 END(interrupt)
