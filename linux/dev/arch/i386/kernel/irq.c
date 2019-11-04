@@ -378,7 +378,7 @@ free_irq (unsigned int irq, void *dev_id)
   struct linux_action *action, **p;
   unsigned long flags;
 
-  if (irq > 15)
+  if (irq >= NINTR)
     panic ("free_irq: bad irq number");
 
   for (p = irq_action + irq; (action = *p) != NULL; p = &action->next)
@@ -418,7 +418,7 @@ probe_irq_on (void)
   /*
    * Allocate all available IRQs.
    */
-  for (i = 15; i > 0; i--)
+  for (i = NINTR - 1; i > 0; i--)
     {
       if (!irq_action[i] && ivect[i] == linux_bad_intr)
 	{
@@ -452,7 +452,7 @@ probe_irq_off (unsigned long irqs)
   /*
    * Disable unnecessary IRQs.
    */
-  for (i = 15; i > 0; i--)
+  for (i = NINTR - 1; i > 0; i--)
     {
       if (!irq_action[i] && ivect[i] == linux_bad_intr)
 	{
@@ -788,13 +788,15 @@ init_IRQ (void)
    */
   (void) splhigh ();
   
+#ifndef APIC
   /*
    * Program counter 0 of 8253 to interrupt hz times per second.
    */
   outb_p (PIT_C0 | PIT_SQUAREMODE | PIT_READMODE, PITCTL_PORT);
   outb_p (latch & 0xff, PITCTR0_PORT);
   outb (latch >> 8, PITCTR0_PORT);
-  
+#endif
+
   /*
    * Install our clock interrupt handler.
    */
@@ -807,11 +809,13 @@ init_IRQ (void)
 
   for (i = 1; i < NINTR; i++)
     {
+#ifndef APIC
       /*
        * irq2 and irq13 should be igonored.
        */
       if (i == 2 || i == 13)
 	continue;
+#endif
       if (ivect[i] == prtnull || ivect[i] == intnull)
 	{
           ivect[i] = linux_bad_intr;
