@@ -231,6 +231,9 @@ lapic_enable_timer(void)
 {
     unsigned long s;
 
+    intpri[0] = SPLHI;
+    form_pic_mask();
+
     s = sploff();
 
     /* Set the timer to interrupt periodically */
