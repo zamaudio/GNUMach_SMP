@@ -51,7 +51,6 @@ WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <kern/mach_clock.h>
 #include <i386/ipl.h>
-#include "imps/apic.h"
 #include <i386/pit.h>
 #include <i386/pio.h>
 
@@ -98,14 +97,13 @@ pit_sleep(void)
 void
 clkstart(void)
 {
+	unsigned long s;
+	unsigned char	byte;
+
 	intpri[0] = SPLHI;
 	form_pic_mask();
 
-	unsigned long s;
-
 	s = sploff();         /* disable interrupts */
-#ifndef APIC
-	unsigned char	byte;
 
 	/* Since we use only timer 0, we program that.
 	 * 8254 Manual specifically says you do not need to program
@@ -117,6 +115,5 @@ clkstart(void)
 	outb(pitctr0_port, byte);
 	byte = clknumb>>8;
 	outb(pitctr0_port, byte); 
-#endif
 	splon(s);         /* restore interrupt state */
 }

@@ -361,7 +361,11 @@ i386at_init(void)
      * Disable the PIC prior to any possible call to an spl.
      */
 #ifndef	MACH_HYP
+# ifdef APIC
     picdisable();
+# else
+    picinit();
+# endif
 #else	/* MACH_HYP */
     hyp_intrinit();
 #endif	/* MACH_HYP */
@@ -709,7 +713,11 @@ vm_prot_t prot;
 void
 startrtclock(void)
 {
+#ifdef APIC
+    lapic_enable_timer();
+#else
     clkstart();
+#endif
 }
 
 void

@@ -159,6 +159,7 @@ extern volatile ApicIoUnit* ioapic;
 
 void picdisable(void);
 void lapic_eoi(void);
+void lapic_enable_timer(void);
 void ioapic_mask_irqs(void);
 void ioapic_toggle(int pin, int mask);
 void ioapic_configure(void);

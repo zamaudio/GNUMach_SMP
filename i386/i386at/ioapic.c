@@ -203,7 +203,7 @@ pit_measure_apic_hz(void)
 }
 
 static void
-lapic_enable_timer_ioapic(void)
+lapic_init_ioapic(void)
 {
     lapic->dest_format.r = 0xffffffff;	/* flat model */
     lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
@@ -224,12 +224,22 @@ lapic_enable_timer_ioapic(void)
 
     /* Measure number of APIC timer ticks in 10ms */
     lapic->init_count.r = pit_measure_apic_hz();
+}
+
+void
+lapic_enable_timer(void)
+{
+    unsigned long s;
+
+    s = sploff();
 
     /* Set the timer to interrupt periodically */
     lapic->lvt_timer.r = IOAPIC_INT_BASE | LAPIC_TIMER_PERIODIC;
 
     /* Some buggy hardware requires this set again */
     lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
+
+    splon(s);
 }
 
 void
@@ -306,5 +316,5 @@ ioapic_configure(void)
 	ioapic_write_entry(apic, pin, entry.both);
     }
 
-    lapic_enable_timer_ioapic();
+    lapic_init_ioapic();
 }
