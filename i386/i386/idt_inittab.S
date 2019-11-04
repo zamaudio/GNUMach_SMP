@@ -92,6 +92,13 @@ ENTRY(name)				;\
 #define	EXCEP_SPC(n,name)  \
 	IDT_ENTRY(n,EXT(name),ACC_PL_K|ACC_TRAP_GATE)
 
+/*
+ * Spurious interrupt
+ */
+#define	EXCEP_SPR(n,name) \
+	IDT_ENTRY(n,EXT(name),ACC_PL_K|ACC_INTR_GATE);\
+ENTRY(name)				;\
+	iret
 
 EXCEPTION(0x00,t_zero_div)
 EXCEP_SPC(0x01,t_debug)
@@ -129,6 +136,7 @@ EXCEPTION(0x1c,t_trap_1c)
 EXCEPTION(0x1d,t_trap_1d)
 EXCEPTION(0x1e,t_trap_1e)
 EXCEPTION(0x1f,t_trap_1f)
+EXCEP_SPR(0xff,i_spurious)
 
 /* Terminator */
 	.data	2

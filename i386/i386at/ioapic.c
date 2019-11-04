@@ -18,7 +18,7 @@ int	pic_mask[NSPL] = {0};
 int	curr_pic_mask;
 
 int	iunit[NINTR] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-			16, 17, 18, 19, 20, 21, 22, 23, 24};
+			16, 17, 18, 19, 20, 21, 22, 23};
 
 unsigned short	master_icw, master_ocw, slaves_icw, slaves_ocw;
 
@@ -56,8 +56,6 @@ void (*ivect[NINTR])() = {
 	/* 21 */	intnull,	/* PIRQF */
 	/* 22 */	intnull,	/* PIRQG */
 	/* 23 */	intnull,	/* PIRQH */
-	
-	/* 255 */	intnull,	/* spurious */
 };
 
 int intpri[NINTR] = {
@@ -67,7 +65,6 @@ int intpri[NINTR] = {
 	/* 12 */	0,	SPL1,	0,	0,
 	/* 16 */	0,	0,	0,	0,
 	/* 20 */	0,	0,	0,	0,
-	/* 255 */	0,
 };
 
 void
@@ -156,9 +153,9 @@ picdisable(void)
 	/*
 	** Disable PIC
 	*/
-	outb ( slaves_ocw, 0xff );
-	outb ( master_ocw, 0xff );
-	
+	outb ( PIC_SLAVE_OCW, 0xff );
+	outb ( PIC_MASTER_OCW, 0xff );
+
 	/*
 	** Route interrupts through IOAPIC
 	*/
@@ -311,22 +308,19 @@ void
 ioapic_toggle(int pin, int mask)
 {
     int apic = 0;
-
-    if (pin < IOAPIC_NINTR) {
-        ioapic_toggle_entry(apic, pin, mask);
-    }
+    ioapic_toggle_entry(apic, pin, mask);
 }
 
 void
 ioapic_mask_irqs(void)
 {
-    int i, bit = 0x1;
+    int i, bitmask = 0x1;
 
-    for (i = 0; i < NINTR; i++, bit<<=1) {
-        if (curr_pic_mask & bit) {
-            ioapic_toggle(i, IOAPIC_MASK_ENABLED);
-        } else {
+    for (i = 0; i < NINTR; i++, bitmask<<=1) {
+        if (curr_pic_mask & bitmask) {
             ioapic_toggle(i, IOAPIC_MASK_DISABLED);
+        } else {
+            ioapic_toggle(i, IOAPIC_MASK_ENABLED);
         }
     }
 }
@@ -371,7 +365,7 @@ ioapic_configure(void)
     entry.both.trigger = IOAPIC_EDGE_TRIGGERED;
 
     for (pin = 0; pin < 16; pin++) {
-        entry.both.vector = IOAPIC_INT_BASE + pin;
+	entry.both.vector = IOAPIC_INT_BASE + pin;
 	ioapic_write_entry(apic, pin, entry.both);
     }
 

@@ -179,12 +179,12 @@ void disable_irq(unsigned int irq);
 #define LAPIC_TIMER_DIVIDE_16		3
 #define LAPIC_TIMER_BASEDIV		0x100000
 
-#define IOAPIC_NINTR			24
-#define NINTR				(IOAPIC_NINTR + 1)
+#define NINTR				24
 #define IOAPIC_FIXED			0
-#define IOAPIC_EXTINT			7
 #define IOAPIC_PHYSICAL			0
 #define IOAPIC_LOGICAL			1
+#define IOAPIC_NMI			4
+#define IOAPIC_EXTINT			7
 #define IOAPIC_ACTIVE_HIGH		0
 #define IOAPIC_ACTIVE_LOW		1
 #define IOAPIC_EDGE_TRIGGERED		0

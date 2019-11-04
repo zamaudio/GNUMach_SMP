@@ -30,11 +30,6 @@
 
 #include <i386/spl.h>
 #include "imps/apic.h"
-#ifdef APIC
-# define NINTR_LINUX IOAPIC_NINTR
-#else
-# define NINTR_LINUX NINTR
-#endif
 #include <i386/pit.h>
 
 #define MACH_INCLUDE
@@ -91,7 +86,7 @@ struct linux_action
   volatile ipc_port_t delivery_port;
 };
 
-static struct linux_action *irq_action[NINTR_LINUX] = {NULL};
+static struct linux_action *irq_action[NINTR] = {NULL};
 
 /*
  * Generic interrupt handler for Linux devices.
@@ -169,7 +164,7 @@ mask_irq (unsigned int irq_nr)
       curr_pic_mask = pic_mask[curr_ipl];
       
 #ifdef APIC
-      ioapic_toggle(irq_nr, IOAPIC_MASK_DISABLED);
+      ioapic_mask_irqs();
 #else
       if (irq_nr < 8)
 	outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
@@ -199,7 +194,7 @@ unmask_irq (unsigned int irq_nr)
     {
       curr_pic_mask = pic_mask[curr_ipl];
 #ifdef APIC
-      ioapic_toggle(irq_nr, IOAPIC_MASK_ENABLED);
+      ioapic_mask_irqs();
 #else
       if (irq_nr < 8)
 	outb (curr_pic_mask & 0xff, PIC_MASTER_OCW);
@@ -300,7 +295,7 @@ install_user_intr_handler (unsigned int irq, unsigned long flags,
   struct linux_action *old;
   int retval;
 
-  assert (irq < NINTR_LINUX);
+  assert (irq < NINTR);
 
   /* Test whether the irq handler has been set */
   // TODO I need to protect the array when iterating it.
@@ -347,7 +342,7 @@ request_irq (unsigned int irq, void (*handler) (int, void *, struct pt_regs *),
   struct linux_action *action;
   int retval;
 
-  assert (irq < NINTR_LINUX);
+  assert (irq < NINTR);
 
   if (!handler)
     return -EINVAL;
@@ -498,7 +493,7 @@ reserve_mach_irqs (void)
 {
   unsigned int i;
 
-  for (i = 0; i < NINTR_LINUX; i++)
+  for (i = 0; i < NINTR; i++)
     {
       if (ivect[i] != prtnull && ivect[i] != intnull)
 	/* This dummy action does not specify SA_SHIRQ, so
@@ -810,7 +805,7 @@ init_IRQ (void)
 
   reserve_mach_irqs ();
 
-  for (i = 1; i < NINTR_LINUX; i++)
+  for (i = 1; i < NINTR; i++)
     {
       /*
        * irq2 and irq13 should be igonored.
