@@ -10,6 +10,7 @@
 #include <i386at/idt.h>
 #include <i386/pio.h>
 #include <i386/pit.h>
+#include <mach/machine.h>
 #include <kern/printf.h>
 #include "imps/apic.h"
 
@@ -292,14 +293,14 @@ void
 ioapic_configure(void)
 {
     /* Assume first IO APIC maps to GSI base 0 */
-    int pin, apic = 0;
+    int pin, apic = 0, bsp = 0;
 
     union ioapic_route_entry_union entry = {{0, 0}};
 
     entry.both.delvmode = IOAPIC_FIXED;
     entry.both.destmode = IOAPIC_PHYSICAL;
     entry.both.mask = IOAPIC_MASK_ENABLED;
-    entry.both.dest = ioapics[apic].apic_id & 0xf;
+    entry.both.dest = machine_slot[bsp].apic_id;
 
     /* ISA legacy IRQs */
     entry.both.polarity = IOAPIC_ACTIVE_HIGH;
