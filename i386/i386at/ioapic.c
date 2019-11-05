@@ -284,6 +284,9 @@ ioapic_configure(void)
     /* Assume first IO APIC maps to GSI base 0 */
     int pin, apic = 0, bsp = 0;
 
+    /* Disable IOAPIC interrupts and set spurious interrupt */
+    lapic->spurious_vector.r = IOAPIC_SPURIOUS_BASE;
+
     union ioapic_route_entry_union entry = {{0, 0}};
 
     entry.both.delvmode = IOAPIC_FIXED;
@@ -319,9 +322,6 @@ ioapic_configure(void)
     lapic->task_pri.r = 0;
 
     //?? global_enable_apic();
-
-    /* Disable IOAPIC interrupts and set spurious interrupt */
-    lapic->spurious_vector.r = IOAPIC_SPURIOUS_BASE;
 
     /* Enable IOAPIC interrupts */
     lapic->spurious_vector.r |= LAPIC_ENABLE;
