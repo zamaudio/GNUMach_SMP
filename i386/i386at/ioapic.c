@@ -299,7 +299,7 @@ ioapic_configure(void)
 
     entry.both.delvmode = IOAPIC_FIXED;
     entry.both.destmode = IOAPIC_PHYSICAL;
-    entry.both.mask = IOAPIC_MASK_ENABLED;
+    entry.both.mask = IOAPIC_MASK_DISABLED;
     entry.both.dest = machine_slot[bsp].apic_id;
 
     /* ISA legacy IRQs */
