@@ -217,9 +217,15 @@ void lapic_update_timer(void)
 void
 lapic_enable_timer(void)
 {
+    spl_t s;
+
+    asm("cli");
+
     intpri[0] = SPLHI;
     form_pic_mask();
     
+    s = sploff();
+
     /* Set up counter */
     lapic->init_count.r = calibrated_ticks;
     lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
@@ -232,6 +238,8 @@ lapic_enable_timer(void)
     
     /* Unmask the timer irq */
     ioapic_toggle(0, IOAPIC_MASK_ENABLED);
+
+    splon(s);
 }
 
 void

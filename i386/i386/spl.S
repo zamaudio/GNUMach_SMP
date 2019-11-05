@@ -99,29 +99,29 @@ ENTRY(spl0)
 
 Entry(splsoftclock)
 ENTRY(spl1)
-	SETIPL(SPL1)
+	//SETIPL(SPL1)
 
 ENTRY(spl2)
-	SETIPL(SPL2)
+	//SETIPL(SPL2)
 
 ENTRY(spl3)
-	SETIPL(SPL3)
+	//SETIPL(SPL3)
 
 Entry(splnet)
 Entry(splhdw)
 ENTRY(spl4)
-	SETIPL(SPL4)
+	//SETIPL(SPL4)
 
 Entry(splbio)
 Entry(spldcm)
 ENTRY(spl5)
-	SETIPL(SPL5)
+	//SETIPL(SPL5)
 
 Entry(spltty)
 Entry(splimp)
 Entry(splvm)
 ENTRY(spl6)
-	SETIPL(SPL6)
+	//SETIPL(SPL6)
 
 Entry(splclock)
 Entry(splsched)
