@@ -157,6 +157,9 @@ union ioapic_route_entry_union {
 extern volatile ApicLocalUnit* lapic;
 extern volatile ApicIoUnit* ioapic;
 
+extern uint32_t lapic_timer_val;
+extern uint32_t calibrated_ticks;
+
 void picdisable(void);
 void lapic_eoi(void);
 void lapic_enable_timer(void);
@@ -178,6 +181,9 @@ void disable_irq(unsigned int irq);
 #define LAPIC_NMI			0x400
 #define LAPIC_DISABLE			0x10000
 #define LAPIC_TIMER_PERIODIC		0x20000
+#define LAPIC_TIMER_DIVIDE_2		0
+#define LAPIC_TIMER_DIVIDE_4		1
+#define LAPIC_TIMER_DIVIDE_8		2
 #define LAPIC_TIMER_DIVIDE_16		3
 #define LAPIC_TIMER_BASEDIV		0x100000
 

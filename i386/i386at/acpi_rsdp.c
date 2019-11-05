@@ -346,8 +346,5 @@ int extra_setup()
            (unsigned long)ioapics[0].addr, (unsigned long)virt2);
   }
 
-  printf("IOAPIC configure...");
-  ioapic_configure();
-  printf("done\n");
   return 0;
 }

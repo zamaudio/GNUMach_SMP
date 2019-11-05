@@ -14,6 +14,9 @@
 #include <kern/printf.h>
 #include "imps/apic.h"
 
+uint32_t lapic_timer_val = 0;
+uint32_t calibrated_ticks = 0;
+
 spl_t	curr_ipl;
 int	pic_mask[NSPL] = {0};
 int	curr_pic_mask;
@@ -176,11 +179,13 @@ global_enable_apic(void)
 	__asm__ __volatile__("rdmsr"
 			    : "=A" (val)
 			    : "c" (msr));
-        val |= (1 << 11);
+	if (!(val & (1 << 11))) {
+	        val |= (1 << 11);
 
-	__asm__ __volatile__("wrmsr"
+		__asm__ __volatile__("wrmsr"
 			    : /* no Outputs */
 			    : "c" (msr), "A" (val));
+	}
 }
 
 static uint32_t
@@ -203,47 +208,30 @@ pit_measure_apic_hz(void)
     return start - lapic->cur_count.r;
 }
 
-static void
-lapic_init_ioapic(void)
+void lapic_update_timer(void)
 {
-    lapic->dest_format.r = 0xffffffff;	/* flat model */
-    lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
-    lapic->lvt_timer.r = LAPIC_DISABLE;
-    lapic->lvt_performance_monitor.r = LAPIC_NMI;
-    lapic->lvt_lint0.r = LAPIC_DISABLE;
-    lapic->lvt_lint1.r = LAPIC_DISABLE;
-    lapic->task_pri.r = 0;
-
-    global_enable_apic();
-
-    /* Enable IOAPIC interrupts and spurious interrupt */
-    lapic->spurious_vector.r |= LAPIC_ENABLE | IOAPIC_SPURIOUS_BASE;
-
-    /* Set one-shot timer */
-    lapic->lvt_timer.r = IOAPIC_INT_BASE;
-    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
-
-    /* Measure number of APIC timer ticks in 10ms */
-    lapic->init_count.r = pit_measure_apic_hz();
+    /* Timer decrements until zero and then calls this on every interrupt */
+    lapic_timer_val += calibrated_ticks;
 }
 
 void
 lapic_enable_timer(void)
 {
-    unsigned long s;
-
     intpri[0] = SPLHI;
     form_pic_mask();
-
-    s = sploff();
+    
+    /* Set up counter */
+    lapic->init_count.r = calibrated_ticks;
+    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
 
     /* Set the timer to interrupt periodically */
     lapic->lvt_timer.r = IOAPIC_INT_BASE | LAPIC_TIMER_PERIODIC;
 
     /* Some buggy hardware requires this set again */
     lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
-
-    splon(s);
+    
+    /* Unmask the timer irq */
+    ioapic_toggle(0, IOAPIC_MASK_ENABLED);
 }
 
 void
@@ -270,6 +258,7 @@ ioapic_mask_irqs(void)
 void
 lapic_eoi(void)
 {
+    lapic_update_timer();
     lapic->eoi.r = 0;
 }
 
@@ -320,5 +309,30 @@ ioapic_configure(void)
 	ioapic_write_entry(apic, pin, entry.both);
     }
 
-    lapic_init_ioapic();
+    /* Start the IO APIC receiving interrupts */
+    lapic->dest_format.r = 0xffffffff;	/* flat model */
+    lapic->logical_dest.r = 0x00000000;	/* default, but we use physical */
+    lapic->lvt_timer.r = LAPIC_DISABLE;
+    lapic->lvt_performance_monitor.r = LAPIC_NMI;
+    lapic->lvt_lint0.r = LAPIC_DISABLE;
+    lapic->lvt_lint1.r = LAPIC_DISABLE;
+    lapic->task_pri.r = 0;
+
+    //?? global_enable_apic();
+
+    /* Disable IOAPIC interrupts and set spurious interrupt */
+    lapic->spurious_vector.r = IOAPIC_SPURIOUS_BASE;
+
+    /* Enable IOAPIC interrupts */
+    lapic->spurious_vector.r |= LAPIC_ENABLE;
+
+    /* Set one-shot timer */
+    lapic->divider_config.r = LAPIC_TIMER_DIVIDE_16;
+    lapic->lvt_timer.r = IOAPIC_INT_BASE;
+
+    /* Measure number of APIC timer ticks in 10ms */
+    calibrated_ticks = pit_measure_apic_hz();
+    
+    /* Set up counter later */
+    lapic->lvt_timer.r = LAPIC_DISABLE;
 }

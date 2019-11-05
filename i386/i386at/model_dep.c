@@ -172,6 +172,14 @@ void machine_init(void)
     hyp_init();
 #else	/* MACH_HYP */
 #ifdef LINUX_DEV
+    
+#ifdef APIC
+    /*
+     * Start the APIC timer
+     */
+    lapic_enable_timer();
+#endif
+    
     /*
      * Initialize Linux drivers.
      */
@@ -713,9 +721,7 @@ vm_prot_t prot;
 void
 startrtclock(void)
 {
-#ifdef APIC
-    lapic_enable_timer();
-#else
+#ifndef APIC
     clkstart();
 #endif
 }

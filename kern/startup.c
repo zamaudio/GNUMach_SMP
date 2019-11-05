@@ -79,6 +79,7 @@ boolean_t reboot_on_panic = TRUE;
 #include <machine/mp_desc.h>
 #include <kern/machine.h>
 #include <i386at/acpi_rsdp.h>
+#include "imps/apic.h"
 
 #endif	/* NCPUS > 1 */
 
@@ -136,9 +137,12 @@ void setup_main(void)
         /*
          * After virtual memory is up, do extra initializations:
          * currently it maps LAPIC and IOAPIC (in acpi_rsdp.c)
-         * and configures the IOAPIC
          */
         extra_setup();
+	#endif
+
+	#ifdef APIC
+	ioapic_configure();
 	#endif
 
 	init_timers();
